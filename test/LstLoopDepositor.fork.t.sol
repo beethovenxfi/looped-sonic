@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+
+import {Test, console} from "forge-std/Test.sol";
+import {LSTVault} from "../src/LSTVault.sol";
+import {LstLoopDepositor} from "../src/LstLoopDepositor.sol";
+import {IWETH} from "../src/interfaces/IWETH.sol";
+import {AaveAccount} from "../src/libraries/AaveAccount.sol";
+
+contract LstLoopDepositorForkTest is Test {
+    using AaveAccount for AaveAccount.Data;
+
+    LSTVault public vault;
+    LstLoopDepositor public depositor;
+
+    address constant STAKED_SONIC = address(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
+    address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
+    IWETH constant WSONIC = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
+    address constant OWNER = address(0x5);
+
+    function setUp() public {
+        vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
+
+        // Deploy vault
+        vault = new LSTVault(address(WSONIC), STAKED_SONIC, AAVE_POOL, OWNER);
+
+        // Deploy depositor
+        depositor = new LstLoopDepositor(vault);
+
+        // Give test account some S tokens (native token)
+        vm.deal(address(this), 100 ether);
+        vm.deal(OWNER, 100 ether);
+
+        // Initialize vault
+        vm.startPrank(OWNER);
+
+        WSONIC.approve(address(vault), type(uint256).max);
+        WSONIC.approve(address(depositor), type(uint256).max);
+
+        WSONIC.deposit{value: 10 ether}();
+
+        vault.initialize();
+        vm.stopPrank();
+
+        console.log("Vault total assets after init:", vault.totalAssets());
+    }
+
+    function testForkDeposit() public {
+        uint256 depositAmount = 10 ether;
+        uint256 initialBalance = address(this).balance;
+        uint256 initialTotalAssets = vault.totalAssets();
+
+        // Deposit into depositor which will execute loop strategy
+        depositor.deposit{value: depositAmount}();
+
+        // Verify balance changed
+        assertEq(address(this).balance, initialBalance - depositAmount);
+
+        // Verify vault received and processed the deposit
+        uint256 finalTotalAssets = vault.totalAssets();
+        assertTrue(finalTotalAssets > initialTotalAssets);
+
+        console.log("Deposit successful: deposited", depositAmount);
+        console.log("Initial total assets:", initialTotalAssets);
+        console.log("Final total assets:", finalTotalAssets);
+        console.log("Assets increase:", finalTotalAssets - initialTotalAssets);
+
+        AaveAccount.Data memory aaveAccount = vault.getVaultAaveAccountData();
+        console.log("health factor", aaveAccount.healthFactor);
+        console.log("total collateral base", aaveAccount.totalCollateralBase);
+        console.log("available borrows base", aaveAccount.availableBorrowsBase);
+        console.log("total debt base", aaveAccount.totalDebtBase);
+        console.log("net asset value in ETH", aaveAccount.netAssetValueInETH());
+        console.log("collateral in ETH", aaveAccount.baseToETH(aaveAccount.totalCollateralBase));
+        console.log("debt in ETH", aaveAccount.baseToETH(aaveAccount.totalDebtBase));
+    }
+
+    /* function testForkDepositWithHealthFactor() public {
+        uint256 depositAmount = 5 ether;
+
+        // Get initial health factor
+        uint256 initialHealthFactor = vault.getVaultAaveAccountData().healthFactor;
+
+        // Execute deposit
+        depositor.deposit{value: depositAmount}();
+
+        // Get final health factor
+        uint256 finalHealthFactor = vault.getVaultAaveAccountData().healthFactor;
+
+        // Health factor should remain above target (1.3e18)
+        assertTrue(finalHealthFactor >= vault.targetHealthFactor());
+
+        console.log("Initial health factor:", initialHealthFactor);
+        console.log("Final health factor:", finalHealthFactor);
+        console.log("Target health factor:", vault.targetHealthFactor());
+    } */
+}
