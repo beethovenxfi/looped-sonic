@@ -255,9 +255,13 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         // we would receive from doing the time based redemption of the LST.
         uint256 redemptionAmount = _toEth(lstAmountToWithdraw);
 
+        allowedCaller = address(0);
+
         // The callback will sell the LST and return the amount of WETH received.
         bytes memory result = (msg.sender).functionCall(data);
         uint256 wethAmount = abi.decode(result, (uint256));
+
+        allowedCaller = msg.sender;
 
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippage) / 1e18, "Not enough WETH");
 
