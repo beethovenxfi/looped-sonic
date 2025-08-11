@@ -64,4 +64,12 @@ contract MockAavePool is IAavePool {
     function ADDRESSES_PROVIDER() external view override returns (IPoolAddressesProvider) {
         return IPoolAddressesProvider(address(0));
     }
+
+    function flashLoanSimple(
+        address receiverAddress,
+        address asset,
+        uint256 amount,
+        bytes calldata params,
+        uint16 referralCode
+    ) external override {}
 }

@@ -71,4 +71,12 @@ interface IAavePool {
      * @param useAsCollateral True if the user wants to use the supply as collateral, false otherwise
      */
     function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external;
+
+    function flashLoanSimple(
+        address receiverAddress,
+        address asset,
+        uint256 amount,
+        bytes calldata params,
+        uint16 referralCode
+    ) external;
 }

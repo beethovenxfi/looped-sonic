@@ -23,6 +23,7 @@ import {IAavePool} from "./interfaces/IAavePool.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AaveAccount} from "./libraries/AaveAccount.sol";
+import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -95,6 +96,9 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         _;
 
+        require(_sessionBalanceWETH == 0, "WETH session balance != 0");
+        require(_sessionBalanceLST == 0, "LST session balance != 0");
+
         locked = false;
         allowedCaller = address(0);
     }
@@ -112,10 +116,10 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
      * @param data Arbitrary calldata forwarded to the callback.
      */
     function deposit(address receiver, bytes calldata data) external nonReentrant whenInitialized acquireLock {
-        uint256 ethPrice = getEthPrice();
+        (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
 
         // -------------------- Pre‑state snapshot -------------------------
-        AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice);
+        AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
 
         uint256 navBefore = aaveAccountBefore.netAssetValueInETH();
 
@@ -128,7 +132,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         require(_sessionBalanceWETH == 0, "WETH session balance != 0");
         require(_sessionBalanceLST == 0, "LST session balance != 0");
 
-        AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice);
+        AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
         uint256 navAfter = aaveAccountAfter.netAssetValueInETH();
 
         uint256 navIncrease = navAfter - navBefore;
@@ -155,11 +159,11 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     function withdraw(uint256 sharesToRedeem, bytes calldata data) external nonReentrant whenInitialized acquireLock {
         require(sharesToRedeem > 0.01e18, "Not enough shares");
 
-        uint256 ethPrice = getEthPrice();
+        (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
 
         // -------------------- Pre‑state snapshot -------------------------
 
-        AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice);
+        AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
         uint256 navBefore = aaveAccountBefore.netAssetValueInETH();
         uint256 totalSupplyBefore = totalSupply();
 
@@ -182,24 +186,13 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         // -------------------- Post checks -------------------------------
 
-        // You must clear your session balance by the end of a withdraw operation
-        require(_sessionBalanceWETH == 0, "WETH session balance != 0");
-        require(_sessionBalanceLST == 0, "LST session balance != 0");
-
-        AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice);
+        AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
         uint256 navAfter = aaveAccountAfter.netAssetValueInETH();
 
         // TODO: investigate what is the best margin to use here
-        require(
-            aaveAccountAfter.totalDebtBase <= expectedDebtAfter * 1.000001e18 / 1e18
-                && aaveAccountAfter.totalDebtBase >= expectedDebtAfter * 0.999999e18 / 1e18,
-            "Debt != expected"
-        );
-        require(
-            aaveAccountAfter.totalCollateralBase <= expectedCollateralAfter * 1.000001e18 / 1e18
-                && aaveAccountAfter.totalCollateralBase >= expectedCollateralAfter * 0.999999e18 / 1e18,
-            "Collateral != expected"
-        );
+        require(aaveAccountAfter.isDebtInRange(expectedDebtAfter, 0.000001e18), "Debt != expected");
+        require(aaveAccountAfter.isCollateralInRange(expectedCollateralAfter, 0.000001e18), "Collateral != expected");
+
         require(
             navAfter <= expectedNavAfter * 1.000001e18 / 1e18 && navAfter >= expectedNavAfter * 0.999999e18 / 1e18,
             "Nav != expected"
@@ -221,11 +214,10 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         aavePool.setUserEMode(1);
         aavePool.setUserUseReserveAsCollateral(address(LST), true);
 
-        AaveAccount.Data memory aaveAccount = _loadAaveAccountData(getEthPrice());
+        (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
+        AaveAccount.Data memory aaveAccount = _loadAaveAccountData(ethPrice, lstPrice);
 
         require(aaveAccount.totalDebtBase == 0, "Debt != 0");
-        require(_sessionBalanceWETH == 0, "WETH session balance != 0");
-        require(_sessionBalanceLST == 0, "LST session balance != 0");
 
         // Since the vault will have no debt and will have earned no interest at this point, the total collateral is
         // the amount of shares to mint
@@ -255,6 +247,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         // we would receive from doing the time based redemption of the LST.
         uint256 redemptionAmount = _toEth(lstAmountToWithdraw);
 
+        // Disallow msg.sender from calling into the vault in the scope of the callback
         allowedCaller = address(0);
 
         // The callback will sell the LST and return the amount of WETH received.
@@ -268,9 +261,6 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         this.pullWETH(wethAmount);
 
         this.aaveRepayWETH(wethAmount);
-
-        require(_sessionBalanceWETH == 0, "WETH session balance != 0");
-        require(_sessionBalanceLST == 0, "LST session balance != 0");
     }
 
     // ---------------------------------------------------------------------
@@ -354,16 +344,46 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         _incrementSessionBalanceLST(amount);
     }
 
-    function getEthPrice() public view returns (uint256) {
-        return aavePool.ADDRESSES_PROVIDER().getPriceOracle().getAssetPrice(address(WETH));
+    // ---------------------------------------------------------------------
+    // View functions
+    // ---------------------------------------------------------------------
+
+    function getAssetPrices() public view returns (uint256 ethPrice, uint256 lstPrice) {
+        IPriceOracle aaveOracle = aavePool.ADDRESSES_PROVIDER().getPriceOracle();
+
+        ethPrice = aaveOracle.getAssetPrice(address(WETH));
+        lstPrice = aaveOracle.getAssetPrice(address(LST));
     }
 
     function getVaultAaveAccountData() public view returns (AaveAccount.Data memory) {
-        return _loadAaveAccountData(getEthPrice());
+        (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
+        return _loadAaveAccountData(ethPrice, lstPrice);
     }
 
     function totalAssets() public view returns (uint256) {
         return getVaultAaveAccountData().netAssetValueInETH();
+    }
+
+    function convertToAssets(uint256 shares) public view returns (uint256) {
+        uint256 assetsTotal = totalAssets();
+        uint256 totalShares = totalSupply();
+
+        if (assetsTotal == 0 || totalShares == 0) {
+            return shares;
+        }
+
+        return (shares * assetsTotal) / totalShares;
+    }
+
+    function convertToShares(uint256 assets) public view returns (uint256) {
+        uint256 assetsTotal = totalAssets();
+        uint256 totalShares = totalSupply();
+
+        if (assetsTotal == 0 || totalShares == 0) {
+            return assets;
+        }
+
+        return (assets * totalShares) / assetsTotal;
     }
 
     // ---------------------------------------------------------------------
@@ -394,8 +414,12 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         _sessionBalanceLST -= amount;
     }
 
-    function _loadAaveAccountData(uint256 ethPrice) private view returns (AaveAccount.Data memory aaveAccount) {
-        aaveAccount.initialize(aavePool, address(this), ethPrice);
+    function _loadAaveAccountData(uint256 ethPrice, uint256 lstPrice)
+        private
+        view
+        returns (AaveAccount.Data memory aaveAccount)
+    {
+        aaveAccount.initialize(aavePool, address(this), ethPrice, lstPrice);
     }
 
     // ---------------------------------------------------------------------

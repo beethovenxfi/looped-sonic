@@ -6,6 +6,9 @@ import {LSTVault} from "../src/LSTVault.sol";
 import {LstLoopDepositor} from "../src/LstLoopDepositor.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {AaveAccount} from "../src/libraries/AaveAccount.sol";
+import {IBalancerVault} from "../src/interfaces/IBalancerVault.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
 
 contract LstLoopDepositorForkTest is Test {
     using AaveAccount for AaveAccount.Data;
@@ -13,22 +16,23 @@ contract LstLoopDepositorForkTest is Test {
     LSTVault public vault;
     LstLoopDepositor public depositor;
 
-    address constant STAKED_SONIC = address(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
+    ISonicStaking constant STAKED_SONIC = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
     IWETH constant WSONIC = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
+    address constant BALANCER_VAULT = address(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     address constant OWNER = address(0x5);
 
     function setUp() public {
         vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
 
         // Deploy vault
-        vault = new LSTVault(address(WSONIC), STAKED_SONIC, AAVE_POOL, OWNER);
+        vault = new LSTVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, OWNER);
 
         // Deploy depositor
-        depositor = new LstLoopDepositor(vault);
+        depositor = new LstLoopDepositor(vault, IBalancerVault(BALANCER_VAULT));
 
         // Give test account some S tokens (native token)
-        vm.deal(address(this), 100 ether);
+        vm.deal(address(this), 100_000_000 ether);
         vm.deal(OWNER, 100 ether);
 
         // Initialize vault
@@ -73,6 +77,31 @@ contract LstLoopDepositorForkTest is Test {
         console.log("net asset value in ETH", aaveAccount.netAssetValueInETH());
         console.log("collateral in ETH", aaveAccount.baseToETH(aaveAccount.totalCollateralBase));
         console.log("debt in ETH", aaveAccount.baseToETH(aaveAccount.totalDebtBase));
+    }
+
+    function testForkWithdraw() public {
+        uint256 depositAmount = 1_000_000 ether;
+        uint256 initialBalance = address(this).balance;
+        uint256 initialTotalAssets = vault.totalAssets();
+
+        // Deposit into depositor which will execute loop strategy
+        depositor.deposit{value: depositAmount}();
+
+        WSONIC.deposit{value: 10_000 ether}();
+        WSONIC.transfer(address(depositor), 10_000 ether);
+
+        //console.log("STAKED_SONIC balance of depositor", STAKED_SONIC.balanceOf(address(depositor)));
+
+        console.log("value of 50k shares", vault.convertToAssets(50_000 ether));
+
+        // Withdraw from depositor
+        vault.approve(address(depositor), type(uint256).max);
+        depositor.withdraw(50_000 ether);
+
+        // Verify balance changed
+        //assertEq(address(this).balance, initialBalance + depositAmount);
+
+        // Verify vault received and processed the deposit
     }
 
     /* function testForkDepositWithHealthFactor() public {

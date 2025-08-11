@@ -4,20 +4,30 @@ pragma solidity ^0.8.30;
 import {LSTVault} from "./LSTVault.sol";
 import {AaveAccount} from "./libraries/AaveAccount.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
+import {IBalancerVault} from "./interfaces/IBalancerVault.sol";
+import {IFlashLoanSimpleReceiver} from "./interfaces/IFlashLoanSimpleReceiver.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {console} from "forge-std/console.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract LstLoopDepositor {
+contract LstLoopDepositor is IFlashLoanSimpleReceiver {
     using AaveAccount for AaveAccount.Data;
+    using SafeERC20 for IERC20;
 
     LSTVault public immutable vault;
+    IBalancerVault public immutable balancerVault;
 
     uint256 public constant MAX_LOOP_ITERATIONS = 10;
 
-    constructor(LSTVault _vault) {
+    constructor(LSTVault _vault, IBalancerVault _balancerVault) {
         vault = _vault;
+        balancerVault = _balancerVault;
 
         IERC20(address(vault.WETH())).approve(address(vault), type(uint256).max);
         IERC20(address(vault.LST())).approve(address(vault), type(uint256).max);
+
+        IERC20(address(vault.WETH())).approve(address(balancerVault), type(uint256).max);
+        IERC20(address(vault.LST())).approve(address(balancerVault), type(uint256).max);
     }
 
     modifier onlyVault() {
@@ -60,6 +70,100 @@ contract LstLoopDepositor {
         //emit PositionLooped(MAX_LOOP_ITERATIONS, totalCollateral, totalDebt);
     }
 
+    function withdraw(uint256 amountShares) external {
+        // The vault will burn shares from this contract, so we transfer them here immediately
+        vault.transferFrom(msg.sender, address(this), amountShares);
+
+        AaveAccount.Data memory aaveAccount = vault.getVaultAaveAccountData();
+        uint256 totalSupply = vault.totalSupply();
+        uint256 collateralInLST = aaveAccount.proportionalCollateralInLST(amountShares, totalSupply);
+        uint256 debtInETH = aaveAccount.proportionalDebtInETH(amountShares, totalSupply);
+
+        vault.aavePool().flashLoanSimple(
+            address(this), address(vault.WETH()), debtInETH, abi.encode(msg.sender, amountShares, collateralInLST), 0
+        );
+    }
+
+    function executeOperation(
+        address asset,
+        uint256 debtInETH,
+        uint256 premium,
+        address initiator,
+        bytes calldata params
+    ) external returns (bool) {
+        require(msg.sender == address(vault.aavePool()), "NOT_POOL");
+        require(initiator == address(this), "BAD_INITIATOR");
+
+        (address recipient, uint256 amountShares, uint256 collateralInLST) =
+            abi.decode(params, (address, uint256, uint256));
+
+        vault.withdraw(
+            amountShares,
+            abi.encodeCall(
+                LstLoopDepositor.withdrawCallback, (recipient, amountShares, collateralInLST, debtInETH, premium)
+            )
+        );
+
+        // pay back the flashloan
+        IERC20(asset).approve(address(vault.aavePool()), debtInETH + premium);
+
+        return true;
+    }
+
+    function withdrawCallback(
+        address recipient,
+        uint256 amountShares,
+        uint256 collateralInLST,
+        uint256 debtInETH,
+        uint256 flashLoanFee
+    ) external onlyVault {
+        vault.pullWETH(debtInETH);
+
+        vault.aaveRepayWETH(debtInETH);
+
+        vault.aaveWithdrawLST(collateralInLST);
+
+        vault.sendLST(address(this), collateralInLST);
+
+        uint256 redemptionAmount = vault.LST().convertToAssets(collateralInLST);
+        console.log("collateralInLST", collateralInLST);
+
+        uint256 wethOut = balancerVault.swap(
+            IBalancerVault.SingleSwap({
+                poolId: 0x374641076b68371e69d03c417dac3e5f236c32fa000000000000000000000006,
+                kind: IBalancerVault.SwapKind.GIVEN_IN,
+                assetIn: address(vault.LST()),
+                assetOut: address(vault.WETH()),
+                amount: collateralInLST,
+                userData: ""
+            }),
+            IBalancerVault.FundManagement({
+                sender: address(this),
+                fromInternalBalance: false,
+                recipient: payable(address(this)),
+                toInternalBalance: false
+            }),
+            0,
+            type(uint256).max
+        );
+
+        console.log("WETH out", wethOut);
+        console.log("debtInETH", debtInETH);
+        console.log("diff", wethOut - debtInETH);
+
+        uint256 amountToRecipient = wethOut - debtInETH - flashLoanFee;
+
+        console.log("amountToRecipient", amountToRecipient);
+        console.log("redemptionAmount", redemptionAmount - debtInETH - flashLoanFee);
+
+        // amountToRecipient 490,693_825_747_729_828_432_025
+        // redemptionAmount  499,437_528_179_624_931_668_457
+
+        // 157,743_246_614_722_991_068_698
+
+        vault.WETH().transfer(recipient, amountToRecipient);
+    }
+
     function _getAmountOfWethToBorrow() internal view returns (uint256) {
         AaveAccount.Data memory aaveAccount = vault.getVaultAaveAccountData();
         uint256 targetHealthFactor = vault.targetHealthFactor();
@@ -90,66 +194,3 @@ contract LstLoopDepositor {
 
     receive() external payable {}
 }
-
-/* (uint256 collateralInBase, uint256 debtInBase,,,,,) = aavePool.getUserAccountData(address(this));
-        IPriceOracle oracle = aavePool.ADDRESSES_PROVIDER().getPriceOracle();
-        uint256 wSonicPrice = oracle.getAssetPrice(address(wSonic));
-        uint256 stsPrice = oracle.getAssetPrice(address(stakedSonic));
-
-        // Calculate proportional debt and collateral to unwind
-        uint256 totalShares = totalSupply();
-
-        uint256 debtToRepayInBase = (debtInBase * shares) / totalShares;
-        uint256 collateralToWithdrawInBase = (collateralInBase * shares) / totalShares; */
-
-/* for (uint256 i = 0; i < MAX_LOOP_ITERATIONS; i++) {
-            if (debtToRepayInBase == 0) {
-                break;
-            }
-
-            uint256 amountToWithdrawInBase = _getMaxAmountWithdrawableInBase(lstPrice);
-
-            if (debtToRepayInBase < amountToWithdrawInBase) {
-                amountToWithdrawInBase = debtToRepayInBase;
-            } else {
-                amountToWithdrawInBase = amountToWithdrawInBase * 0.99e18 / 1e18;
-            }
-
-            uint256 amountToWithdrawInLst = amountToWithdrawInBase * 1e18 / lstPrice;
-
-            aavePool.withdraw(address(stakedSonic), amountToWithdrawInLst, address(this));
-            uint256 sReceived = _convertStSToS(amountToWithdrawInLst);
-            aavePool.repay(address(wSonic), sReceived, VARIABLE_INTEREST_RATE, address(this));
-
-            debtToRepayInBase -= sReceived;
-            collateralToWithdraw -= amountToWithdrawAsLst;
-        } */
-
-/* uint256 proportionalDebt = (data.debt * shares) / totalShares;
-
-        uint256 assets = (data.collateral * shares) / totalShares;
-        uint256 assetsAsLst = stakedSonic.convertToShares(assets);
-
-        // Withdraw stS collateral from Aave
-        aavePool.withdraw(address(stakedSonic), assetsAsLst, address(this));
-
-        // Convert stS to S for debt repayment
-        uint256 sReceived = _convertStSToS(assetsAsLst);
-
-        if (sReceived < proportionalDebt) {
-            revert("Not enough S received to repay debt");
-        }
-
-        aavePool.repay(address(asset()), proportionalDebt, VARIABLE_INTEREST_RATE, address(this));
-
-        // Account for any slippage in the stS -> S conversion
-        assets = assets - proportionalDebt + sReceived;
-
-        uint256 remainingStS = stakedSonic.convertToShares(assets);
-
-        if (remainingStS > 0) {
-            aavePool.withdraw(address(stakedSonic), remainingStS, address(this));
-            _convertStSToS(remainingStS);
-        } */
-
-//emit PositionUnwound(sReceived, stSToSell + remainingStS);
