@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
-import {LSTVault} from "../src/LSTVault.sol";
+import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
 import {LstLoopDepositor} from "../src/LstLoopDepositor.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {AaveAccount} from "../src/libraries/AaveAccount.sol";
@@ -13,7 +13,7 @@ import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
 contract LstLoopDepositorForkTest is Test {
     using AaveAccount for AaveAccount.Data;
 
-    LSTVault public vault;
+    LoopedSonicVault public vault;
     LstLoopDepositor public depositor;
 
     ISonicStaking constant STAKED_SONIC = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
@@ -26,7 +26,7 @@ contract LstLoopDepositorForkTest is Test {
         vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
 
         // Deploy vault
-        vault = new LSTVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, OWNER);
+        vault = new LoopedSonicVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, OWNER);
 
         // Deploy depositor
         depositor = new LstLoopDepositor(vault, IBalancerVault(BALANCER_VAULT));

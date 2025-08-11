@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 /**
  *
- *  LSTVault – ERC20 Vault Token with Flash‑Accounting Execution Flow (OpenZeppelin‑based)
+ *  LoopedSonicVault – ERC20 Vault Token with Flash‑Accounting Execution Flow (OpenZeppelin‑based)
  *  -----------------------------------------------------------------------------------
  *  ▸ Issues ERC20 vault shares (inherits OpenZeppelin ERC20)
  *  ▸ Supports WETH + wstETH as managed assets
@@ -28,11 +28,11 @@ import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {console} from "forge-std/console.sol";
 
 /**
- * @title LSTVault
+ * @title LoopedSonicVault
  * @notice Vault that lets users create a leveraged wstETH position on Aave via an atomic, flash‑loan‑style callback.
  *         Vault shares are ERC20 and track a proportional claim on net asset value (ETH terms).
  */
-contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
+contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Address for address;
     using AaveAccount for AaveAccount.Data;
@@ -73,7 +73,7 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     // Constructor
     // ---------------------------------------------------------------------
     constructor(address _weth, address _lst, address _aavePool, address _owner)
-        ERC20("LST Vault Share", "LSTV")
+        ERC20("Beets Aave Looped Sonic", "lS")
         Ownable(_owner)
     {
         require(_weth != address(0) && _lst != address(0) && _aavePool != address(0), "Zero addr");

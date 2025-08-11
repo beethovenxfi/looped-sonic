@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {LSTVault} from "./LSTVault.sol";
+import {LoopedSonicVault} from "./LoopedSonicVault.sol";
 import {AaveAccount} from "./libraries/AaveAccount.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IBalancerVault} from "./interfaces/IBalancerVault.sol";
@@ -14,12 +14,12 @@ contract LstLoopDepositor is IFlashLoanSimpleReceiver {
     using AaveAccount for AaveAccount.Data;
     using SafeERC20 for IERC20;
 
-    LSTVault public immutable VAULT;
+    LoopedSonicVault public immutable VAULT;
     IBalancerVault public immutable BALANCER_VAULT;
 
     uint256 public constant MAX_LOOP_ITERATIONS = 10;
 
-    constructor(LSTVault _vault, IBalancerVault _balancerVault) {
+    constructor(LoopedSonicVault _vault, IBalancerVault _balancerVault) {
         VAULT = _vault;
         BALANCER_VAULT = _balancerVault;
 
