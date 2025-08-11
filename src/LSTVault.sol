@@ -17,6 +17,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ISonicStaking} from "./interfaces/ISonicStaking.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IAavePool} from "./interfaces/IAavePool.sol";
@@ -31,16 +32,23 @@ import {console} from "forge-std/console.sol";
  * @notice Vault that lets users create a leveraged wstETH position on Aave via an atomic, flash‑loan‑style callback.
  *         Vault shares are ERC20 and track a proportional claim on net asset value (ETH terms).
  */
-contract LSTVault is ERC20, Ownable, ReentrancyGuard {
+contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Address for address;
     using AaveAccount for AaveAccount.Data;
 
+    bytes32 public constant DONATOR_ROLE = keccak256("DONATOR_ROLE");
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+
     uint256 public constant VARIABLE_INTEREST_RATE = 2;
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18; // 0.01
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18; // 0.01
+    uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18; // 0.01
     uint256 public constant MAX_UNWIND_SLIPPAGE = 0.02e18; // 2%
     uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18; // 0.01 ETH
+    uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
+    uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
+    uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
@@ -77,6 +85,9 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         // Approve Aave once for both tokens (safe since Aave pool is trusted)
         IERC20(_weth).approve(_aavePool, type(uint256).max);
         IERC20(_lst).approve(_aavePool, type(uint256).max);
+
+        // Grant admin role to owner
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
     }
 
     // ---------------------------------------------------------------------
@@ -165,7 +176,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
      * @param data          Arbitrary calldata forwarded to the callback.
      */
     function withdraw(uint256 sharesToRedeem, bytes calldata data) external nonReentrant whenInitialized acquireLock {
-        require(sharesToRedeem > 0.01e18, "Not enough shares");
+        require(sharesToRedeem > MIN_SHARES_TO_REDEEM, "Not enough shares");
 
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
 
@@ -205,11 +216,9 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     function initialize() external nonReentrant onlyOwner acquireLock {
         require(!isInitialized, "Already initialized");
 
-        uint256 initAmount = 1 ether;
+        pullWeth(INIT_AMOUNT);
 
-        pullWeth(initAmount);
-
-        stakeWeth(initAmount);
+        stakeWeth(INIT_AMOUNT);
 
         aaveSupplyLst(_lstSessionBalance);
 
@@ -234,15 +243,15 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     function unwind(uint256 lstAmountToWithdraw, bytes calldata data)
         external
         nonReentrant
-        onlyOwner
+        onlyRole(OPERATOR_ROLE)
         whenInitialized
         acquireLock
     {
-        require(lstAmountToWithdraw > 0.01e18, "Not enough collateral");
+        require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, "Unwind amount < min");
 
-        this.aaveWithdrawLst(lstAmountToWithdraw);
+        aaveWithdrawLst(lstAmountToWithdraw);
 
-        this.sendLst(msg.sender, lstAmountToWithdraw);
+        sendLst(msg.sender, lstAmountToWithdraw);
 
         // The redemption amount is the true value of the collateral, in ETH terms. It is the amount of WETH that
         // we would receive from doing the time based redemption of the LST.
@@ -259,9 +268,18 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippage) / 1e18, "Not enough WETH");
 
-        this.pullWeth(wethAmount);
+        pullWeth(wethAmount);
 
-        this.aaveRepayWeth(wethAmount);
+        aaveRepayWeth(wethAmount);
+    }
+
+    function donate(uint256 wethAmount, uint256 lstAmount) external nonReentrant onlyRole(DONATOR_ROLE) acquireLock {
+        pullWeth(wethAmount);
+        pullLst(lstAmount);
+
+        stakeWeth(wethAmount);
+
+        aaveSupplyLst(_lstSessionBalance);
     }
 
     // ---------------------------------------------------------------------
@@ -424,7 +442,22 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     }
 
     // ---------------------------------------------------------------------
-    // Receive fallback (accept raw ETH from WETH.withdraw/Lido)
+    // Admin functions
     // ---------------------------------------------------------------------
-    receive() external payable {}
+
+    function setTargetHealthFactor(uint256 _targetHealthFactor) external onlyOwner {
+        require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, "Target HF too low");
+        targetHealthFactor = _targetHealthFactor;
+    }
+
+    function setAllowedUnwindSlippage(uint256 _allowedUnwindSlippage) external onlyOwner {
+        require(_allowedUnwindSlippage <= MAX_UNWIND_SLIPPAGE, "Slippage too high");
+        allowedUnwindSlippage = _allowedUnwindSlippage;
+    }
+
+    receive() external payable {
+        // Only accept ETH from the WETH contract. The vault calls WETH.withdraw to unwrap WETH before
+        // calling stake on the LST contract.
+        require(msg.sender == address(WETH), "Not WETH");
+    }
 }
