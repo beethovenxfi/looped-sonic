@@ -40,13 +40,14 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18; // 0.01
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18; // 0.01
     uint256 public constant MAX_UNWIND_SLIPPAGE = 0.02e18; // 2%
+    uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18; // 0.01 ETH
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
     // ---------------------------------------------------------------------
     IWETH public immutable WETH;
     ISonicStaking public immutable LST;
-    IAavePool public immutable aavePool;
+    IAavePool public immutable AAVE_POOL;
 
     bool public isInitialized = false;
     uint256 public targetHealthFactor = 1.3e18;
@@ -57,8 +58,8 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     // ---------------------------------------------------------------------
     bool private transient locked;
     address private transient allowedCaller;
-    uint256 private transient _sessionBalanceWETH;
-    uint256 private transient _sessionBalanceLST;
+    uint256 private transient _wethSessionBalance;
+    uint256 private transient _lstSessionBalance;
 
     // ---------------------------------------------------------------------
     // Constructor
@@ -71,7 +72,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
-        aavePool = IAavePool(_aavePool);
+        AAVE_POOL = IAavePool(_aavePool);
 
         // Approve Aave once for both tokens (safe since Aave pool is trusted)
         IERC20(_weth).approve(_aavePool, type(uint256).max);
@@ -88,6 +89,11 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         _;
     }
 
+    modifier onlyWhenNotLocked() {
+        require(!locked, "Locked");
+        _;
+    }
+
     modifier acquireLock() {
         require(!locked, "Op in progress");
 
@@ -96,8 +102,9 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         _;
 
-        require(_sessionBalanceWETH == 0, "WETH session balance != 0");
-        require(_sessionBalanceLST == 0, "LST session balance != 0");
+        // You must clear your session balance by the end of any operation that acquires a lock
+        require(_wethSessionBalance == 0, "WETH session balance != 0");
+        require(_lstSessionBalance == 0, "LST session balance != 0");
 
         locked = false;
         allowedCaller = address(0);
@@ -109,7 +116,8 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     }
 
     // ---------------------------------------------------------------------
-    // Primary entry points: atomic leveraged deposit and withdraw operations
+    // Primary vault operations, each function acquires a lock and then executes a callback, strictly enforcing
+    // invariants after the callback.
     // ---------------------------------------------------------------------
 
     /**
@@ -121,33 +129,33 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         // -------------------- Pre‑state snapshot -------------------------
         AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
 
-        uint256 navBefore = aaveAccountBefore.netAssetValueInETH();
+        uint256 navBeforeEth = aaveAccountBefore.netAssetValueInEth();
 
-        // ----------------------- Callback -------------------------------
+        // We execute the callback, giving control back to the caller to perform the deposit
         (msg.sender).functionCall(data);
 
         // -------------------- Post checks -------------------------------
 
-        // You must clear your session balance by the end of a deposit operation
-        require(_sessionBalanceWETH == 0, "WETH session balance != 0");
-        require(_sessionBalanceLST == 0, "LST session balance != 0");
-
         AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navAfter = aaveAccountAfter.netAssetValueInETH();
+        uint256 navAfterEth = aaveAccountAfter.netAssetValueInEth();
 
-        uint256 navIncrease = navAfter - navBefore;
+        uint256 navIncreaseEth = navAfterEth - navBeforeEth;
 
-        require(navIncrease >= MIN_DEPOSIT_AMOUNT, "Net change < min");
+        require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, "Net change < min");
 
         // TODO: investigate what is the best margin to use here
         if (aaveAccountBefore.healthFactor < targetHealthFactor) {
+            // The current health factor is below the target, so we require that the health factor cannot decrease
+            // from it's current value
             require(aaveAccountAfter.healthFactor >= aaveAccountBefore.healthFactor * 0.999e18 / 1e18, "HF < target");
         } else {
+            // The current health factor is above the target, so we require that the health factor stays above the
+            // target
             require(aaveAccountAfter.healthFactor >= targetHealthFactor * 0.999e18 / 1e18, "HF < target");
         }
 
         // we issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        uint256 shares = totalSupply() * navIncrease / navBefore;
+        uint256 shares = totalSupply() * navIncreaseEth / navBeforeEth;
 
         _mint(receiver, shares);
     }
@@ -164,21 +172,20 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         // -------------------- Pre‑state snapshot -------------------------
 
         AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navBefore = aaveAccountBefore.netAssetValueInETH();
+        uint256 navBeforeETH = aaveAccountBefore.netAssetValueInEth();
         uint256 totalSupplyBefore = totalSupply();
 
-        // calculate the portion of debt and collateral that belongs to the amount of shares being redeemed
-        uint256 debtToRepay = aaveAccountBefore.totalDebtBase * sharesToRedeem / totalSupplyBefore;
-        uint256 collateralToWithdraw = aaveAccountBefore.totalCollateralBase * sharesToRedeem / totalSupplyBefore;
-        uint256 navForShares = navBefore * sharesToRedeem / totalSupplyBefore;
+        uint256 navForSharesEth = navBeforeETH * sharesToRedeem / totalSupplyBefore;
 
-        uint256 expectedDebtAfter = aaveAccountBefore.totalDebtBase - debtToRepay;
-        uint256 expectedCollateralAfter = aaveAccountBefore.totalCollateralBase - collateralToWithdraw;
-        uint256 expectedNavAfter = navBefore - navForShares;
+        uint256 expectedDebtAfterBase =
+            aaveAccountBefore.totalDebtBase - aaveAccountBefore.proportionalDebtBase(sharesToRedeem, totalSupplyBefore);
+        uint256 expectedCollateralAfterBase = aaveAccountBefore.totalCollateralBase
+            - aaveAccountBefore.proportionalCollateralBase(sharesToRedeem, totalSupplyBefore);
+        uint256 expectedNavAfterEth = navBeforeETH - navForSharesEth;
 
         // Burn shares up‑front for withdrawals
-        // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer
-        // of token approval checks
+        // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer of
+        // of permissions
         _burn(msg.sender, sharesToRedeem);
 
         // ----------------------- Callback -------------------------------
@@ -187,17 +194,12 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         // -------------------- Post checks -------------------------------
 
         AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navAfter = aaveAccountAfter.netAssetValueInETH();
+        uint256 navAfterETH = aaveAccountAfter.netAssetValueInEth();
 
         // TODO: investigate what is the best margin to use here
-        require(aaveAccountAfter.isDebtInRange(expectedDebtAfter, 0.000001e18), "Debt != expected");
-        require(aaveAccountAfter.isCollateralInRange(expectedCollateralAfter, 0.000001e18), "Collateral != expected");
-
-        require(
-            navAfter <= expectedNavAfter * 1.000001e18 / 1e18 && navAfter >= expectedNavAfter * 0.999999e18 / 1e18,
-            "Nav != expected"
-        );
-        //TODO: should we do a health factor check here?
+        require(expectedDebtAfterBase == aaveAccountAfter.totalDebtBase, "Debt != expected");
+        require(expectedCollateralAfterBase == aaveAccountAfter.totalCollateralBase, "Collateral != expected");
+        require(navAfterETH == expectedNavAfterEth, "Nav != expected");
     }
 
     function initialize() external nonReentrant onlyOwner acquireLock {
@@ -205,25 +207,24 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         uint256 initAmount = 1 ether;
 
-        pullWETH(initAmount);
+        pullWeth(initAmount);
 
-        stakeWETH(initAmount);
+        stakeWeth(initAmount);
 
-        aaveSupplyLST(_sessionBalanceLST);
+        aaveSupplyLst(_lstSessionBalance);
 
-        aavePool.setUserEMode(1);
-        aavePool.setUserUseReserveAsCollateral(address(LST), true);
+        AAVE_POOL.setUserEMode(1);
+        AAVE_POOL.setUserUseReserveAsCollateral(address(LST), true);
 
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
         AaveAccount.Data memory aaveAccount = _loadAaveAccountData(ethPrice, lstPrice);
 
         require(aaveAccount.totalDebtBase == 0, "Debt != 0");
 
-        // Since the vault will have no debt and will have earned no interest at this point, the total collateral is
-        // the amount of shares to mint
-        uint256 sharesToMint = aaveAccount.baseToETH(aaveAccount.totalCollateralBase);
+        // Since the vault's nav was 0 before initialization, the amount of shares to mint is the nav
+        uint256 sharesToMint = aaveAccount.netAssetValueInEth();
 
-        //TODO: revisit this, ideally this is the zero address
+        // TODO: revisit this, ideally this is the zero address
         // we burn the initial shares so that the total supply will never return to 0
         _mint(address(1), sharesToMint);
 
@@ -239,15 +240,15 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     {
         require(lstAmountToWithdraw > 0.01e18, "Not enough collateral");
 
-        this.aaveWithdrawLST(lstAmountToWithdraw);
+        this.aaveWithdrawLst(lstAmountToWithdraw);
 
-        this.sendLST(msg.sender, lstAmountToWithdraw);
+        this.sendLst(msg.sender, lstAmountToWithdraw);
 
         // The redemption amount is the true value of the collateral, in ETH terms. It is the amount of WETH that
         // we would receive from doing the time based redemption of the LST.
-        uint256 redemptionAmount = _toEth(lstAmountToWithdraw);
+        uint256 redemptionAmount = _lstToEth(lstAmountToWithdraw);
 
-        // Disallow msg.sender from calling into the vault in the scope of the callback
+        // Disallow msg.sender from calling into the vault during the scope of the callback
         allowedCaller = address(0);
 
         // The callback will sell the LST and return the amount of WETH received.
@@ -258,90 +259,90 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
 
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippage) / 1e18, "Not enough WETH");
 
-        this.pullWETH(wethAmount);
+        this.pullWeth(wethAmount);
 
-        this.aaveRepayWETH(wethAmount);
+        this.aaveRepayWeth(wethAmount);
     }
 
     // ---------------------------------------------------------------------
     // Vault primitives (ONLY callable during an active lock)
     // ---------------------------------------------------------------------
 
-    function stakeWETH(uint256 amount) public onlyWhenLocked returns (uint256 lstAmount) {
+    function stakeWeth(uint256 amount) public onlyWhenLocked returns (uint256 lstAmount) {
         require(amount >= MIN_LST_DEPOSIT, "Not enough WETH");
 
-        _decrementSessionBalanceWETH(amount);
+        _decrementWethSessionBalance(amount);
 
         // the LST only accepts native ETH, so we unwrap WETH prior to calling deposit
         WETH.withdraw(amount);
 
         lstAmount = LST.deposit{value: amount}();
 
-        _incrementSessionBalanceLST(lstAmount);
+        _incrementLstSessionBalance(lstAmount);
     }
 
-    function aaveSupplyLST(uint256 amount) public onlyWhenLocked {
+    function aaveSupplyLst(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
-        _decrementSessionBalanceLST(amount);
+        _decrementLstSessionBalance(amount);
 
-        aavePool.supply(address(LST), amount, address(this), 0);
+        AAVE_POOL.supply(address(LST), amount, address(this), 0);
     }
 
-    function aaveWithdrawLST(uint256 amount) public onlyWhenLocked {
+    function aaveWithdrawLst(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
-        aavePool.withdraw(address(LST), amount, address(this));
+        AAVE_POOL.withdraw(address(LST), amount, address(this));
 
-        _incrementSessionBalanceLST(amount);
+        _incrementLstSessionBalance(amount);
     }
 
-    function aaveBorrowWETH(uint256 amount) public onlyWhenLocked {
+    function aaveBorrowWeth(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
-        aavePool.borrow(address(WETH), amount, VARIABLE_INTEREST_RATE, 0, address(this));
+        AAVE_POOL.borrow(address(WETH), amount, VARIABLE_INTEREST_RATE, 0, address(this));
 
-        _incrementSessionBalanceWETH(amount);
+        _incrementWethSessionBalance(amount);
     }
 
-    function aaveRepayWETH(uint256 amount) public onlyWhenLocked {
+    function aaveRepayWeth(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
-        _decrementSessionBalanceWETH(amount);
+        _decrementWethSessionBalance(amount);
 
-        aavePool.repay(address(WETH), amount, VARIABLE_INTEREST_RATE, address(this));
+        AAVE_POOL.repay(address(WETH), amount, VARIABLE_INTEREST_RATE, address(this));
     }
 
-    function sendWETH(address to, uint256 amount) public onlyWhenLocked {
+    function sendWeth(address to, uint256 amount) public onlyWhenLocked {
         require(amount > 0 && to != address(0), "Bad args");
 
         IERC20(address(WETH)).safeTransfer(to, amount);
 
-        _decrementSessionBalanceWETH(amount);
+        _decrementWethSessionBalance(amount);
     }
 
-    function sendLST(address to, uint256 amount) public onlyWhenLocked {
+    function sendLst(address to, uint256 amount) public onlyWhenLocked {
         require(amount > 0 && to != address(0), "Bad args");
 
         IERC20(address(LST)).safeTransfer(to, amount);
 
-        _decrementSessionBalanceLST(amount);
+        _decrementLstSessionBalance(amount);
     }
 
-    function pullWETH(uint256 amount) public onlyWhenLocked {
+    function pullWeth(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
         WETH.transferFrom(msg.sender, address(this), amount);
 
-        _incrementSessionBalanceWETH(amount);
+        _incrementWethSessionBalance(amount);
     }
 
-    function pullLST(uint256 amount) public onlyWhenLocked {
+    function pullLst(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
         LST.transferFrom(msg.sender, address(this), amount);
 
-        _incrementSessionBalanceLST(amount);
+        _incrementLstSessionBalance(amount);
     }
 
     // ---------------------------------------------------------------------
@@ -349,7 +350,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     // ---------------------------------------------------------------------
 
     function getAssetPrices() public view returns (uint256 ethPrice, uint256 lstPrice) {
-        IPriceOracle aaveOracle = aavePool.ADDRESSES_PROVIDER().getPriceOracle();
+        IPriceOracle aaveOracle = AAVE_POOL.ADDRESSES_PROVIDER().getPriceOracle();
 
         ethPrice = aaveOracle.getAssetPrice(address(WETH));
         lstPrice = aaveOracle.getAssetPrice(address(LST));
@@ -360,11 +361,11 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         return _loadAaveAccountData(ethPrice, lstPrice);
     }
 
-    function totalAssets() public view returns (uint256) {
-        return getVaultAaveAccountData().netAssetValueInETH();
+    function totalAssets() public view onlyWhenNotLocked returns (uint256) {
+        return getVaultAaveAccountData().netAssetValueInEth();
     }
 
-    function convertToAssets(uint256 shares) public view returns (uint256) {
+    function convertToAssets(uint256 shares) public view onlyWhenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
         uint256 totalShares = totalSupply();
 
@@ -375,7 +376,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         return (shares * assetsTotal) / totalShares;
     }
 
-    function convertToShares(uint256 assets) public view returns (uint256) {
+    function convertToShares(uint256 assets) public view onlyWhenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
         uint256 totalShares = totalSupply();
 
@@ -390,28 +391,28 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
     // Internal helpers
     // ---------------------------------------------------------------------
 
-    function _toEth(uint256 lstAmount) private view returns (uint256) {
+    function _lstToEth(uint256 lstAmount) private view returns (uint256) {
         return LST.convertToAssets(lstAmount);
     }
 
-    function _incrementSessionBalanceWETH(uint256 amount) private {
-        _sessionBalanceWETH += amount;
+    function _incrementWethSessionBalance(uint256 amount) private {
+        _wethSessionBalance += amount;
     }
 
-    function _incrementSessionBalanceLST(uint256 amount) private {
-        _sessionBalanceLST += amount;
+    function _incrementLstSessionBalance(uint256 amount) private {
+        _lstSessionBalance += amount;
     }
 
-    function _decrementSessionBalanceWETH(uint256 amount) private {
-        require(_sessionBalanceWETH >= amount, "Insufficient WETH session balance");
+    function _decrementWethSessionBalance(uint256 amount) private {
+        require(_wethSessionBalance >= amount, "Insufficient WETH session balance");
 
-        _sessionBalanceWETH -= amount;
+        _wethSessionBalance -= amount;
     }
 
-    function _decrementSessionBalanceLST(uint256 amount) private {
-        require(_sessionBalanceLST >= amount, "Insufficient LST session balance");
+    function _decrementLstSessionBalance(uint256 amount) private {
+        require(_lstSessionBalance >= amount, "Insufficient LST session balance");
 
-        _sessionBalanceLST -= amount;
+        _lstSessionBalance -= amount;
     }
 
     function _loadAaveAccountData(uint256 ethPrice, uint256 lstPrice)
@@ -419,7 +420,7 @@ contract LSTVault is ERC20, Ownable, ReentrancyGuard {
         view
         returns (AaveAccount.Data memory aaveAccount)
     {
-        aaveAccount.initialize(aavePool, address(this), ethPrice, lstPrice);
+        aaveAccount.initialize(AAVE_POOL, address(this), ethPrice, lstPrice);
     }
 
     // ---------------------------------------------------------------------

@@ -74,9 +74,9 @@ contract LstLoopDepositorForkTest is Test {
         console.log("total collateral base", aaveAccount.totalCollateralBase);
         console.log("available borrows base", aaveAccount.availableBorrowsBase);
         console.log("total debt base", aaveAccount.totalDebtBase);
-        console.log("net asset value in ETH", aaveAccount.netAssetValueInETH());
-        console.log("collateral in ETH", aaveAccount.baseToETH(aaveAccount.totalCollateralBase));
-        console.log("debt in ETH", aaveAccount.baseToETH(aaveAccount.totalDebtBase));
+        console.log("net asset value in ETH", aaveAccount.netAssetValueInEth());
+        console.log("collateral in ETH", aaveAccount.baseToEth(aaveAccount.totalCollateralBase));
+        console.log("debt in ETH", aaveAccount.baseToEth(aaveAccount.totalDebtBase));
     }
 
     function testForkWithdraw() public {
