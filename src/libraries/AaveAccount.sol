@@ -34,8 +34,12 @@ library AaveAccount {
         data.lstPrice = lstPrice;
     }
 
+    function netAssetValueBase(Data memory data) internal pure returns (uint256) {
+        return data.totalCollateralBase - data.totalDebtBase;
+    }
+
     function netAssetValueInEth(Data memory data) internal pure returns (uint256) {
-        return data.baseToEth(data.totalCollateralBase - data.totalDebtBase);
+        return data.baseToEth(data.netAssetValueBase());
     }
 
     function proportionalCollateralBase(Data memory data, uint256 shares, uint256 totalSupply)

@@ -162,6 +162,7 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         } else {
             // The current health factor is above the target, so we require that the health factor stays above the
             // target
+            //TODO: health factor should be greater than target but less than a margin
             require(aaveAccountAfter.healthFactor >= targetHealthFactor * 0.999e18 / 1e18, "HF < target");
         }
 
@@ -183,16 +184,16 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         // -------------------- Pre‑state snapshot -------------------------
 
         AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navBeforeETH = aaveAccountBefore.netAssetValueInEth();
+        uint256 navBefore = aaveAccountBefore.netAssetValueBase();
         uint256 totalSupplyBefore = totalSupply();
 
-        uint256 navForSharesEth = navBeforeETH * sharesToRedeem / totalSupplyBefore;
+        uint256 navForShares = navBefore * sharesToRedeem / totalSupplyBefore;
 
-        uint256 expectedDebtAfterBase =
+        uint256 expectedDebtAfter =
             aaveAccountBefore.totalDebtBase - aaveAccountBefore.proportionalDebtBase(sharesToRedeem, totalSupplyBefore);
-        uint256 expectedCollateralAfterBase = aaveAccountBefore.totalCollateralBase
+        uint256 expectedCollateralAfter = aaveAccountBefore.totalCollateralBase
             - aaveAccountBefore.proportionalCollateralBase(sharesToRedeem, totalSupplyBefore);
-        uint256 expectedNavAfterEth = navBeforeETH - navForSharesEth;
+        uint256 expectedNavAfter = navBefore - navForShares;
 
         // Burn shares up‑front for withdrawals
         // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer of
@@ -205,12 +206,12 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         // -------------------- Post checks -------------------------------
 
         AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navAfterETH = aaveAccountAfter.netAssetValueInEth();
+        uint256 navAfter = aaveAccountAfter.netAssetValueBase();
 
         // TODO: investigate what is the best margin to use here
-        require(expectedDebtAfterBase == aaveAccountAfter.totalDebtBase, "Debt != expected");
-        require(expectedCollateralAfterBase == aaveAccountAfter.totalCollateralBase, "Collateral != expected");
-        require(navAfterETH == expectedNavAfterEth, "Nav != expected");
+        require(expectedDebtAfter == aaveAccountAfter.totalDebtBase, "Debt != expected");
+        require(expectedCollateralAfter == aaveAccountAfter.totalCollateralBase, "Collateral != expected");
+        require(navAfter == expectedNavAfter, "Nav != expected");
     }
 
     function initialize() external nonReentrant onlyOwner acquireLock {
@@ -279,6 +280,7 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
 
         stakeWeth(wethAmount);
 
+        // We only supply the LST to the Aave pool, we leave the task of looping to the next deposit
         aaveSupplyLst(_lstSessionBalance);
     }
 
@@ -350,7 +352,7 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     function pullWeth(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
-        WETH.transferFrom(msg.sender, address(this), amount);
+        IERC20(address(WETH)).safeTransferFrom(msg.sender, address(this), amount);
 
         _incrementWethSessionBalance(amount);
     }
@@ -358,7 +360,7 @@ contract LSTVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     function pullLst(uint256 amount) public onlyWhenLocked {
         require(amount > 0, "0 amt");
 
-        LST.transferFrom(msg.sender, address(this), amount);
+        IERC20(address(LST)).safeTransferFrom(msg.sender, address(this), amount);
 
         _incrementLstSessionBalance(amount);
     }

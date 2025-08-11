@@ -72,7 +72,7 @@ contract LstLoopDepositor is IFlashLoanSimpleReceiver {
 
     function withdraw(uint256 amountShares) external {
         // The vault will burn shares from this contract, so we transfer them here immediately
-        VAULT.transferFrom(msg.sender, address(this), amountShares);
+        IERC20(address(VAULT)).safeTransferFrom(msg.sender, address(this), amountShares);
 
         AaveAccount.Data memory aaveAccount = VAULT.getVaultAaveAccountData();
         uint256 totalSupply = VAULT.totalSupply();
@@ -161,7 +161,7 @@ contract LstLoopDepositor is IFlashLoanSimpleReceiver {
 
         // 157,743_246_614_722_991_068_698
 
-        VAULT.WETH().transfer(recipient, amountToRecipient);
+        IERC20(address(VAULT.WETH())).safeTransfer(recipient, amountToRecipient);
     }
 
     function _getAmountOfWethToBorrow() internal view returns (uint256) {
