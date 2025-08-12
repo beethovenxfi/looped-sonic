@@ -24,6 +24,7 @@ import {IAavePool} from "./interfaces/IAavePool.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AaveAccount} from "./libraries/AaveAccount.sol";
+import {AaveAccountComparison} from "./libraries/AaveAccountComparison.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {console} from "forge-std/console.sol";
 
@@ -36,6 +37,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Address for address;
     using AaveAccount for AaveAccount.Data;
+    using AaveAccountComparison for AaveAccountComparison.Data;
 
     bytes32 public constant DONATOR_ROLE = keccak256("DONATOR_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -163,44 +165,31 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     // ---------------------------------------------------------------------
 
     /**
-     * @param data Arbitrary calldata forwarded to the callback.
+     * @param callbackData Arbitrary calldata forwarded to the callback.
      */
-    function deposit(address receiver, bytes calldata data) external nonReentrant whenInitialized acquireLock {
+    function deposit(address receiver, bytes calldata callbackData) external nonReentrant whenInitialized acquireLock {
         require(!depositsPaused, "Deposits paused");
 
+        AaveAccountComparison.Data memory data;
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
 
         // -------------------- Pre‑state snapshot -------------------------
-        AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
-
-        uint256 navBefore = aaveAccountBefore.netAssetValueBase();
+        data.accountBefore = _loadAaveAccountData(ethPrice, lstPrice);
 
         // We execute the callback, giving control back to the caller to perform the deposit
-        (msg.sender).functionCall(data);
+        (msg.sender).functionCall(callbackData);
 
         // -------------------- Post checks -------------------------------
 
-        AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
-
-        uint256 navIncrease = aaveAccountAfter.netAssetValueBase() - navBefore;
-        uint256 navIncreaseEth = aaveAccountAfter.baseToEth(navIncrease);
+        data.accountAfter = _loadAaveAccountData(ethPrice, lstPrice);
+        uint256 navIncreaseEth = data.navIncreaseEth();
 
         require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, "Net change < min");
 
-        // TODO: investigate what is the best margin to use here
-        if (aaveAccountBefore.healthFactor < targetHealthFactor) {
-            // The current health factor is below the target, so we require that the health factor cannot decrease
-            // from it's current value
-            require(aaveAccountAfter.healthFactor >= aaveAccountBefore.healthFactor * 0.999e18 / 1e18, "HF < target");
-        } else {
-            // The current health factor is above the target, so we require that the health factor stays above the
-            // target
-            //TODO: health factor should be greater than target but less than a margin
-            require(aaveAccountAfter.healthFactor >= targetHealthFactor * 0.999e18 / 1e18, "HF < target");
-        }
+        require(data.checkHealthFactorAfterDeposit(targetHealthFactor), "HF < target");
 
         // we issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        uint256 shares = totalSupply() * navIncrease / navBefore;
+        uint256 shares = totalSupply() * data.navIncreaseBase() / data.accountBefore.netAssetValueBase();
 
         _mint(receiver, shares);
 
@@ -209,27 +198,23 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
 
     /**
      * @param sharesToRedeem Amount of vault shares to burn.
-     * @param data          Arbitrary calldata forwarded to the callback.
+     * @param callbackData          Arbitrary calldata forwarded to the callback.
      */
-    function withdraw(uint256 sharesToRedeem, bytes calldata data) external nonReentrant whenInitialized acquireLock {
+    function withdraw(uint256 sharesToRedeem, bytes calldata callbackData)
+        external
+        nonReentrant
+        whenInitialized
+        acquireLock
+    {
         require(!withdrawsPaused, "Withdraws paused");
         require(sharesToRedeem > MIN_SHARES_TO_REDEEM, "Not enough shares");
 
+        AaveAccountComparison.Data memory data;
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
 
         // -------------------- Pre‑state snapshot -------------------------
-
-        AaveAccount.Data memory aaveAccountBefore = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navBefore = aaveAccountBefore.netAssetValueBase();
+        data.accountBefore = _loadAaveAccountData(ethPrice, lstPrice);
         uint256 totalSupplyBefore = totalSupply();
-
-        uint256 navForShares = navBefore * sharesToRedeem / totalSupplyBefore;
-
-        uint256 expectedDebtAfter =
-            aaveAccountBefore.totalDebtBase - aaveAccountBefore.proportionalDebtBase(sharesToRedeem, totalSupplyBefore);
-        uint256 expectedCollateralAfter = aaveAccountBefore.totalCollateralBase
-            - aaveAccountBefore.proportionalCollateralBase(sharesToRedeem, totalSupplyBefore);
-        uint256 expectedNavAfter = navBefore - navForShares;
 
         // Burn shares up‑front for withdrawals
         // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer of
@@ -237,19 +222,18 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         _burn(msg.sender, sharesToRedeem);
 
         // ----------------------- Callback -------------------------------
-        (msg.sender).functionCall(data);
+        (msg.sender).functionCall(callbackData);
 
         // -------------------- Post checks -------------------------------
 
-        AaveAccount.Data memory aaveAccountAfter = _loadAaveAccountData(ethPrice, lstPrice);
-        uint256 navAfter = aaveAccountAfter.netAssetValueBase();
+        data.accountAfter = _loadAaveAccountData(ethPrice, lstPrice);
 
         // TODO: investigate what is the best margin to use here
-        require(expectedDebtAfter == aaveAccountAfter.totalDebtBase, "Debt != expected");
-        require(expectedCollateralAfter == aaveAccountAfter.totalCollateralBase, "Collateral != expected");
-        require(navAfter == expectedNavAfter, "Nav != expected");
+        require(data.checkDebtAfterWithdraw(sharesToRedeem, totalSupplyBefore), "Debt != expected");
+        require(data.checkCollateralAfterWithdraw(sharesToRedeem, totalSupplyBefore), "Collateral != expected");
+        require(data.checkNavAfterWithdraw(sharesToRedeem, totalSupplyBefore), "Nav != expected");
 
-        emit Withdraw(msg.sender, sharesToRedeem, aaveAccountAfter.baseToEth(navBefore - navAfter));
+        emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
     }
 
     function initialize() external nonReentrant onlyOwner acquireLock {
