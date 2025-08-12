@@ -301,7 +301,13 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         emit Unwind(msg.sender, lstAmountToWithdraw, wethAmount);
     }
 
-    function donate(uint256 wethAmount, uint256 lstAmount) external nonReentrant onlyRole(DONATOR_ROLE) acquireLock {
+    function donate(uint256 wethAmount, uint256 lstAmount)
+        external
+        nonReentrant
+        onlyRole(DONATOR_ROLE)
+        whenInitialized
+        acquireLock
+    {
         require(!donationsPaused, "Donations paused");
         require(wethAmount > 0 || lstAmount > 0, "0 amt");
 
