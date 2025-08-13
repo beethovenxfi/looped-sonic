@@ -96,7 +96,7 @@ contract LstLoopDepositorForkTest is Test {
 
         // Withdraw from depositor
         vault.approve(address(depositor), type(uint256).max);
-        depositor.withdraw(50_000 ether);
+        depositor.withdraw(50_000 ether, 0);
 
         // Verify balance changed
         //assertEq(address(this).balance, initialBalance + depositAmount);

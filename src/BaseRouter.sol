@@ -47,7 +47,12 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         VAULT.pullWeth(initialAssets);
 
         for (uint256 i = 0; i < MAX_LOOP_ITERATIONS && currentAssets > 0; i++) {
+            uint256 minLstAmount = VAULT.LST().convertToShares(currentAssets);
             uint256 lstAmount = convertWethToLst(currentAssets);
+
+            // The router implementation must ensure that the amount of LST received is at least the amount of
+            // shares that would be received if the WETH was staked
+            require(lstAmount >= minLstAmount, "LST amount out too low");
 
             VAULT.aaveSupplyLst(lstAmount);
 
@@ -68,7 +73,7 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         //emit PositionLooped(MAX_LOOP_ITERATIONS, totalCollateral, totalDebt);
     }
 
-    function withdraw(uint256 amountShares) external {
+    function withdraw(uint256 amountShares, uint256 minWethOut) external {
         // The vault will burn shares from this contract, so we transfer them here immediately
         IERC20(address(VAULT)).safeTransferFrom(msg.sender, address(this), amountShares);
 
@@ -78,7 +83,11 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         uint256 debtInEth = aaveAccount.proportionalDebtInEth(amountShares, totalSupply);
 
         VAULT.AAVE_POOL().flashLoanSimple(
-            address(this), address(VAULT.WETH()), debtInEth, abi.encode(msg.sender, amountShares, collateralInLst), 0
+            address(this),
+            address(VAULT.WETH()),
+            debtInEth,
+            abi.encode(msg.sender, amountShares, collateralInLst, minWethOut),
+            0
         );
     }
 
@@ -92,12 +101,14 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         require(msg.sender == address(VAULT.AAVE_POOL()), "NOT_POOL");
         require(initiator == address(this), "BAD_INITIATOR");
 
-        (address recipient, uint256 amountShares, uint256 collateralInLst) =
-            abi.decode(params, (address, uint256, uint256));
+        (address recipient, uint256 amountShares, uint256 collateralInLst, uint256 minWethOut) =
+            abi.decode(params, (address, uint256, uint256, uint256));
 
         VAULT.withdraw(
             amountShares,
-            abi.encodeCall(BaseRouter.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium))
+            abi.encodeCall(
+                BaseRouter.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium, minWethOut)
+            )
         );
 
         // pay back the flashloan
@@ -111,7 +122,8 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         uint256 amountShares,
         uint256 collateralInLst,
         uint256 debtInEth,
-        uint256 flashLoanFee
+        uint256 flashLoanFee,
+        uint256 minWethOut
     ) external onlyVault {
         VAULT.pullWeth(debtInEth);
 
@@ -131,6 +143,14 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         console.log("diff", wethOut - debtInEth);
 
         uint256 amountToRecipient = wethOut - debtInEth - flashLoanFee;
+
+        console.log("amountToRecipient", amountToRecipient);
+        console.log("redemptionAmount", redemptionAmount - debtInEth - flashLoanFee);
+
+        // amountToRecipient 490,693_825_747_729_828_432_025
+        // redemptionAmount  499,437_528_179_624_931_668_457
+
+        // 157,743_246_614_722_991_068_698
 
         IERC20(address(VAULT.WETH())).safeTransfer(recipient, amountToRecipient);
     }
