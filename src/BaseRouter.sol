@@ -10,25 +10,23 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract BaseRouter is IFlashLoanSimpleReceiver {
+abstract contract BaseRouter is IFlashLoanSimpleReceiver {
     using AaveAccount for AaveAccount.Data;
     using SafeERC20 for IERC20;
 
     LoopedSonicVault public immutable VAULT;
-    IBalancerVault public immutable BALANCER_VAULT;
 
     uint256 public constant MAX_LOOP_ITERATIONS = 10;
 
-    constructor(LoopedSonicVault _vault, IBalancerVault _balancerVault) {
+    constructor(LoopedSonicVault _vault) {
         VAULT = _vault;
-        BALANCER_VAULT = _balancerVault;
 
         IERC20(address(VAULT.WETH())).approve(address(VAULT), type(uint256).max);
         IERC20(address(VAULT.LST())).approve(address(VAULT), type(uint256).max);
-
-        IERC20(address(VAULT.WETH())).approve(address(BALANCER_VAULT), type(uint256).max);
-        IERC20(address(VAULT.LST())).approve(address(BALANCER_VAULT), type(uint256).max);
     }
+
+    function convertWethToLst(uint256 wethAmount) internal virtual returns (uint256);
+    function convertLstToWeth(uint256 lstAmount) internal virtual returns (uint256);
 
     modifier onlyVault() {
         require(msg.sender == address(VAULT), "Not vault");
@@ -49,7 +47,7 @@ contract BaseRouter is IFlashLoanSimpleReceiver {
         VAULT.pullWeth(initialAssets);
 
         for (uint256 i = 0; i < MAX_LOOP_ITERATIONS && currentAssets > 0; i++) {
-            uint256 lstAmount = VAULT.stakeWeth(currentAssets);
+            uint256 lstAmount = convertWethToLst(currentAssets);
 
             VAULT.aaveSupplyLst(lstAmount);
 
@@ -99,9 +97,7 @@ contract BaseRouter is IFlashLoanSimpleReceiver {
 
         VAULT.withdraw(
             amountShares,
-            abi.encodeCall(
-                BaseRouter.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium)
-            )
+            abi.encodeCall(BaseRouter.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium))
         );
 
         // pay back the flashloan
@@ -128,38 +124,13 @@ contract BaseRouter is IFlashLoanSimpleReceiver {
         uint256 redemptionAmount = VAULT.LST().convertToAssets(collateralInLst);
         console.log("collateralInLST", collateralInLst);
 
-        uint256 wethOut = BALANCER_VAULT.swap(
-            IBalancerVault.SingleSwap({
-                poolId: 0x374641076b68371e69d03c417dac3e5f236c32fa000000000000000000000006,
-                kind: IBalancerVault.SwapKind.GIVEN_IN,
-                assetIn: address(VAULT.LST()),
-                assetOut: address(VAULT.WETH()),
-                amount: collateralInLst,
-                userData: ""
-            }),
-            IBalancerVault.FundManagement({
-                sender: address(this),
-                fromInternalBalance: false,
-                recipient: payable(address(this)),
-                toInternalBalance: false
-            }),
-            0,
-            type(uint256).max
-        );
+        uint256 wethOut = convertLstToWeth(collateralInLst);
 
         console.log("WETH out", wethOut);
         console.log("debtInETH", debtInEth);
         console.log("diff", wethOut - debtInEth);
 
         uint256 amountToRecipient = wethOut - debtInEth - flashLoanFee;
-
-        console.log("amountToRecipient", amountToRecipient);
-        console.log("redemptionAmount", redemptionAmount - debtInEth - flashLoanFee);
-
-        // amountToRecipient 490,693_825_747_729_828_432_025
-        // redemptionAmount  499,437_528_179_624_931_668_457
-
-        // 157,743_246_614_722_991_068_698
 
         IERC20(address(VAULT.WETH())).safeTransfer(recipient, amountToRecipient);
     }
