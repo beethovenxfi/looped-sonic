@@ -10,7 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract LstLoopDepositor is IFlashLoanSimpleReceiver {
+contract BaseRouter is IFlashLoanSimpleReceiver {
     using AaveAccount for AaveAccount.Data;
     using SafeERC20 for IERC20;
 
@@ -38,7 +38,7 @@ contract LstLoopDepositor is IFlashLoanSimpleReceiver {
     function deposit() external payable {
         IWETH(address(VAULT.WETH())).deposit{value: msg.value}();
 
-        VAULT.deposit(msg.sender, abi.encodeCall(LstLoopDepositor.depositCallback, (msg.value)));
+        VAULT.deposit(msg.sender, abi.encodeCall(BaseRouter.depositCallback, (msg.value)));
     }
 
     function depositCallback(uint256 initialAssets) external onlyVault {
@@ -100,7 +100,7 @@ contract LstLoopDepositor is IFlashLoanSimpleReceiver {
         VAULT.withdraw(
             amountShares,
             abi.encodeCall(
-                LstLoopDepositor.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium)
+                BaseRouter.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium)
             )
         );
 
