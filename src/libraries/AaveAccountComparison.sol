@@ -7,6 +7,8 @@ library AaveAccountComparison {
     using AaveAccountComparison for Data;
     using AaveAccount for AaveAccount.Data;
 
+    uint256 public constant HEALTH_FACTOR_MARGIN = 0.000001e18;
+
     struct Data {
         AaveAccount.Data accountBefore;
         AaveAccount.Data accountAfter;
@@ -30,14 +32,14 @@ library AaveAccountComparison {
 
     function checkHealthFactorAfterDeposit(Data memory data, uint256 targetHealthFactor) internal pure returns (bool) {
         if (data.accountBefore.healthFactor < targetHealthFactor) {
-            // The current health factor is below the target, so we require that the health factor cannot decrease
+            // The previous health factor is below the target, so we require that the new health factor cannot decrease
             // from it's current value
-            return data.accountAfter.healthFactor >= data.accountBefore.healthFactor * 0.999e18 / 1e18;
+            return
+                data.accountAfter.healthFactor >= data.accountBefore.healthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18;
         } else {
-            // The current health factor is above the target, so we require that the health factor stays above the
-            // target
-            //TODO: health factor should be greater than target but less than a margin
-            return data.accountAfter.healthFactor >= targetHealthFactor * 0.999e18 / 1e18;
+            // The previous health factor is above the target, we require that the health factor is within a margin of the target
+            return data.accountAfter.healthFactor >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
+                && data.accountAfter.healthFactor <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         }
     }
 

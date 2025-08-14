@@ -23,14 +23,14 @@ contract BalancerLoopedSonicRouter is BaseLoopedSonicRouter {
         return VAULT.stakeWeth(wethAmount);
     }
 
-    function convertLstToWeth(uint256 lstAmount) internal override returns (uint256) {
+    function convertLstToWeth(uint256 lstCollateralAmount, bytes memory data) internal override returns (uint256) {
         return BALANCER_VAULT.swap(
             IBalancerVault.SingleSwap({
                 poolId: 0x374641076b68371e69d03c417dac3e5f236c32fa000000000000000000000006,
                 kind: IBalancerVault.SwapKind.GIVEN_IN,
                 assetIn: address(VAULT.LST()),
                 assetOut: address(VAULT.WETH()),
-                amount: lstAmount,
+                amount: lstCollateralAmount,
                 userData: ""
             }),
             IBalancerVault.FundManagement({

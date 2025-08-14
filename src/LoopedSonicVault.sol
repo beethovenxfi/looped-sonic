@@ -256,8 +256,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         // Since the vault's nav was 0 before initialization, the amount of shares to mint is the nav, valued in ETH
         uint256 sharesToMint = aaveAccount.netAssetValueInEth();
 
-        // TODO: revisit this, ideally this is the zero address
-        // we burn the initial shares so that the total supply will never return to 0
+        // We burn the initial shares so that the total supply will never return to 0
+        // We use address(1) since openzeppelin's ERC20 does not allow minting to the zero address
         _mint(address(1), sharesToMint);
 
         isInitialized = true;
@@ -265,7 +265,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         emit Initialize(msg.sender, address(1), sharesToMint, sharesToMint);
     }
 
-    function unwind(uint256 lstAmountToWithdraw, bytes calldata data)
+    function unwind(uint256 lstAmountToWithdraw, address contractToCall, bytes calldata data)
         external
         nonReentrant
         onlyRole(OPERATOR_ROLE)
@@ -287,7 +287,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         allowedCaller = address(0);
 
         // The callback will sell the LST and return the amount of WETH received.
-        bytes memory result = (msg.sender).functionCall(data);
+        bytes memory result = (contractToCall).functionCall(data);
         uint256 wethAmount = abi.decode(result, (uint256));
 
         allowedCaller = msg.sender;
@@ -472,6 +472,22 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     function getRate() public view onlyWhenNotLocked returns (uint256) {
         // The rate is the amount of assets that 1 share is worth
         return convertToAssets(1 ether);
+    }
+
+    function getCollateralAndDebtForShares(uint256 shares)
+        public
+        view
+        onlyWhenNotLocked
+        returns (uint256 collateralInLst, uint256 debtInEth)
+    {
+        uint256 totalSupply = totalSupply();
+
+        require(shares > 0, "0 shares");
+        require(shares <= totalSupply, "shares > total supply");
+
+        AaveAccount.Data memory aaveAccount = getVaultAaveAccountData();
+        collateralInLst = aaveAccount.proportionalCollateralInLst(shares, totalSupply);
+        debtInEth = aaveAccount.proportionalDebtInEth(shares, totalSupply);
     }
 
     // ---------------------------------------------------------------------

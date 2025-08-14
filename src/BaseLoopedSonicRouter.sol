@@ -26,7 +26,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     }
 
     function convertWethToLst(uint256 wethAmount) internal virtual returns (uint256);
-    function convertLstToWeth(uint256 lstAmount) internal virtual returns (uint256);
+    function convertLstToWeth(uint256 lstCollateralAmount, bytes memory data) internal virtual returns (uint256);
 
     modifier onlyVault() {
         require(msg.sender == address(VAULT), "Not vault");
@@ -73,87 +73,85 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         //emit PositionLooped(MAX_LOOP_ITERATIONS, totalCollateral, totalDebt);
     }
 
-    function withdraw(uint256 amountShares, uint256 minWethAmountOut) external {
+    struct WithdrawParams {
+        address recipient;
+        uint256 amountShares;
+        uint256 minWethAmountOut;
+        uint256 collateralInLst;
+        uint256 debtInEth;
+        bytes convertLstToWethData;
+    }
+
+    function withdraw(uint256 amountShares, uint256 minWethAmountOut, bytes memory convertLstToWethData) external {
         // The vault will burn shares from this contract, so we transfer them here immediately
         IERC20(address(VAULT)).safeTransferFrom(msg.sender, address(this), amountShares);
 
-        AaveAccount.Data memory aaveAccount = VAULT.getVaultAaveAccountData();
-        uint256 totalSupply = VAULT.totalSupply();
-        uint256 collateralInLst = aaveAccount.proportionalCollateralInLst(amountShares, totalSupply);
-        uint256 debtInEth = aaveAccount.proportionalDebtInEth(amountShares, totalSupply);
+        (uint256 collateralInLst, uint256 debtInEth) = VAULT.getCollateralAndDebtForShares(amountShares);
 
-        VAULT.AAVE_POOL().flashLoanSimple(
-            address(this),
-            address(VAULT.WETH()),
-            debtInEth,
-            abi.encode(msg.sender, amountShares, collateralInLst, minWethAmountOut),
-            0
-        );
+        WithdrawParams memory params = WithdrawParams({
+            recipient: msg.sender,
+            amountShares: amountShares,
+            minWethAmountOut: minWethAmountOut,
+            collateralInLst: collateralInLst,
+            debtInEth: debtInEth,
+            convertLstToWethData: convertLstToWethData
+        });
+
+        VAULT.AAVE_POOL().flashLoanSimple(address(this), address(VAULT.WETH()), params.debtInEth, abi.encode(params), 0);
     }
 
     function executeOperation(
         address asset,
-        uint256 debtInEth,
-        uint256 premium,
+        uint256 flashLoanAmount,
+        uint256 flashLoanFee,
         address initiator,
         bytes calldata params
     ) external returns (bool) {
         require(msg.sender == address(VAULT.AAVE_POOL()), "NOT_POOL");
         require(initiator == address(this), "BAD_INITIATOR");
 
-        (address recipient, uint256 amountShares, uint256 collateralInLst, uint256 minWethAmountOut) =
-            abi.decode(params, (address, uint256, uint256, uint256));
+        WithdrawParams memory withdrawParams = abi.decode(params, (WithdrawParams));
 
         VAULT.withdraw(
-            amountShares,
-            abi.encodeCall(
-                BaseLoopedSonicRouter.withdrawCallback,
-                (recipient, amountShares, collateralInLst, debtInEth, premium, minWethAmountOut)
-            )
+            withdrawParams.amountShares,
+            abi.encodeCall(BaseLoopedSonicRouter.withdrawCallback, (withdrawParams, flashLoanFee))
         );
 
-        // pay back the flashloan
-        IERC20(asset).approve(address(VAULT.AAVE_POOL()), debtInEth + premium);
+        // Allow aave to pull the funds to pay back the flashloan
+        IERC20(asset).approve(address(VAULT.AAVE_POOL()), flashLoanAmount + flashLoanFee);
 
         return true;
     }
 
-    function withdrawCallback(
-        address recipient,
-        uint256 amountShares,
-        uint256 collateralInLst,
-        uint256 debtInEth,
-        uint256 flashLoanFee,
-        uint256 minWethAmountOut
-    ) external onlyVault {
-        VAULT.pullWeth(debtInEth);
+    function withdrawCallback(WithdrawParams memory params, uint256 flashLoanFee) external onlyVault {
+        VAULT.pullWeth(params.debtInEth);
 
-        VAULT.aaveRepayWeth(debtInEth);
+        VAULT.aaveRepayWeth(params.debtInEth);
 
-        VAULT.aaveWithdrawLst(collateralInLst);
+        VAULT.aaveWithdrawLst(params.collateralInLst);
 
-        VAULT.sendLst(address(this), collateralInLst);
+        VAULT.sendLst(address(this), params.collateralInLst);
 
-        uint256 redemptionAmount = VAULT.LST().convertToAssets(collateralInLst);
-        console.log("collateralInLST", collateralInLst);
+        uint256 redemptionAmount = VAULT.LST().convertToAssets(params.collateralInLst);
+        console.log("collateralInLST", params.collateralInLst);
 
-        uint256 wethOut = convertLstToWeth(collateralInLst);
+        uint256 wethOut = convertLstToWeth(params.collateralInLst, params.convertLstToWethData);
 
         console.log("WETH out", wethOut);
-        console.log("debtInETH", debtInEth);
-        console.log("diff", wethOut - debtInEth);
+        console.log("debtInETH", params.debtInEth);
+        console.log("diff", wethOut - params.debtInEth);
 
-        uint256 amountToRecipient = wethOut - debtInEth - flashLoanFee;
+        uint256 amountToRecipient = wethOut - params.debtInEth - flashLoanFee;
 
         console.log("amountToRecipient", amountToRecipient);
-        console.log("redemptionAmount", redemptionAmount - debtInEth - flashLoanFee);
+        console.log("redemptionAmount", redemptionAmount - params.debtInEth - flashLoanFee);
 
         // amountToRecipient 490,693_825_747_729_828_432_025
         // redemptionAmount  499,437_528_179_624_931_668_457
 
         // 157,743_246_614_722_991_068_698
 
-        IERC20(address(VAULT.WETH())).safeTransfer(recipient, amountToRecipient);
+        IERC20(address(VAULT.WETH())).safeTransfer(params.recipient, amountToRecipient);
     }
 
     function _getAmountOfWethToBorrow() internal view returns (uint256) {
