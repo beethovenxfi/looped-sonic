@@ -10,7 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-abstract contract BaseRouter is IFlashLoanSimpleReceiver {
+abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     using AaveAccount for AaveAccount.Data;
     using SafeERC20 for IERC20;
 
@@ -36,7 +36,7 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
     function deposit() external payable {
         IWETH(address(VAULT.WETH())).deposit{value: msg.value}();
 
-        VAULT.deposit(msg.sender, abi.encodeCall(BaseRouter.depositCallback, (msg.value)));
+        VAULT.deposit(msg.sender, abi.encodeCall(BaseLoopedSonicRouter.depositCallback, (msg.value)));
     }
 
     function depositCallback(uint256 initialAssets) external onlyVault {
@@ -73,7 +73,7 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         //emit PositionLooped(MAX_LOOP_ITERATIONS, totalCollateral, totalDebt);
     }
 
-    function withdraw(uint256 amountShares, uint256 minWethOut) external {
+    function withdraw(uint256 amountShares, uint256 minWethAmountOut) external {
         // The vault will burn shares from this contract, so we transfer them here immediately
         IERC20(address(VAULT)).safeTransferFrom(msg.sender, address(this), amountShares);
 
@@ -86,7 +86,7 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
             address(this),
             address(VAULT.WETH()),
             debtInEth,
-            abi.encode(msg.sender, amountShares, collateralInLst, minWethOut),
+            abi.encode(msg.sender, amountShares, collateralInLst, minWethAmountOut),
             0
         );
     }
@@ -101,13 +101,14 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         require(msg.sender == address(VAULT.AAVE_POOL()), "NOT_POOL");
         require(initiator == address(this), "BAD_INITIATOR");
 
-        (address recipient, uint256 amountShares, uint256 collateralInLst, uint256 minWethOut) =
+        (address recipient, uint256 amountShares, uint256 collateralInLst, uint256 minWethAmountOut) =
             abi.decode(params, (address, uint256, uint256, uint256));
 
         VAULT.withdraw(
             amountShares,
             abi.encodeCall(
-                BaseRouter.withdrawCallback, (recipient, amountShares, collateralInLst, debtInEth, premium, minWethOut)
+                BaseLoopedSonicRouter.withdrawCallback,
+                (recipient, amountShares, collateralInLst, debtInEth, premium, minWethAmountOut)
             )
         );
 
@@ -123,7 +124,7 @@ abstract contract BaseRouter is IFlashLoanSimpleReceiver {
         uint256 collateralInLst,
         uint256 debtInEth,
         uint256 flashLoanFee,
-        uint256 minWethOut
+        uint256 minWethAmountOut
     ) external onlyVault {
         VAULT.pullWeth(debtInEth);
 

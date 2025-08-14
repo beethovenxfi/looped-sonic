@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
-import {BalancerRouter} from "../src/BalancerRouter.sol";
+import {BalancerLoopedSonicRouter} from "../src/BalancerLoopedSonicRouter.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {AaveAccount} from "../src/libraries/AaveAccount.sol";
 import {IBalancerVault} from "../src/interfaces/IBalancerVault.sol";
@@ -14,7 +14,7 @@ contract LstLoopDepositorForkTest is Test {
     using AaveAccount for AaveAccount.Data;
 
     LoopedSonicVault public vault;
-    BalancerRouter public depositor;
+    BalancerLoopedSonicRouter public depositor;
 
     ISonicStaking constant STAKED_SONIC = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
@@ -29,7 +29,7 @@ contract LstLoopDepositorForkTest is Test {
         vault = new LoopedSonicVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, OWNER);
 
         // Deploy depositor
-        depositor = new BalancerRouter(vault, IBalancerVault(BALANCER_VAULT));
+        depositor = new BalancerLoopedSonicRouter(vault, IBalancerVault(BALANCER_VAULT));
 
         // Give test account some S tokens (native token)
         vm.deal(address(this), 100_000_000 ether);

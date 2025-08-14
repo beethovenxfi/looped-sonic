@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {BaseRouter} from "./BaseRouter.sol";
+import {BaseLoopedSonicRouter} from "./BaseLoopedSonicRouter.sol";
 import {LoopedSonicVault} from "./LoopedSonicVault.sol";
 import {IBalancerVault} from "./interfaces/IBalancerVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract BalancerRouter is BaseRouter {
+contract BalancerLoopedSonicRouter is BaseLoopedSonicRouter {
     using SafeERC20 for IERC20;
 
     IBalancerVault public immutable BALANCER_VAULT;
 
-    constructor(LoopedSonicVault _vault, IBalancerVault _balancerVault) BaseRouter(_vault) {
+    constructor(LoopedSonicVault _vault, IBalancerVault _balancerVault) BaseLoopedSonicRouter(_vault) {
         BALANCER_VAULT = _balancerVault;
 
         IERC20(address(VAULT.WETH())).approve(address(BALANCER_VAULT), type(uint256).max);
