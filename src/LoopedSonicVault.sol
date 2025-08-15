@@ -30,8 +30,7 @@ import {console} from "forge-std/console.sol";
 
 /**
  * @title LoopedSonicVault
- * @notice Vault that lets users create a leveraged wstETH position on Aave via an atomic, flash‑loan‑style callback.
- *         Vault shares are ERC20 and track a proportional claim on net asset value (ETH terms).
+ * @notice Vault that lets users create a leveraged stS position on Aave.
  */
 contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonicVault {
     using SafeERC20 for IERC20;
