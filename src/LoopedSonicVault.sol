@@ -52,7 +52,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
     uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
 
-
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
     // ---------------------------------------------------------------------
@@ -203,7 +202,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         data.accountAfter = _loadAaveAccountData(ethPrice, lstPrice);
 
-        // TODO: investigate what is the best margin to use here
         require(data.checkDebtAfterWithdraw(sharesToRedeem, totalSupplyBefore), InvalidDebtAfterWithdraw());
         require(data.checkCollateralAfterWithdraw(sharesToRedeem, totalSupplyBefore), InvalidCollateralAfterWithdraw());
         require(data.checkNavAfterWithdraw(sharesToRedeem, totalSupplyBefore), InvalidNavAfterWithdraw());
