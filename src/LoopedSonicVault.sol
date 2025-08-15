@@ -16,7 +16,6 @@ pragma solidity ^0.8.30;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ISonicStaking} from "./interfaces/ISonicStaking.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
@@ -34,7 +33,7 @@ import {console} from "forge-std/console.sol";
  * @notice Vault that lets users create a leveraged wstETH position on Aave via an atomic, flash‑loan‑style callback.
  *         Vault shares are ERC20 and track a proportional claim on net asset value (ETH terms).
  */
-contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILoopedSonicVault {
+contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonicVault {
     using SafeERC20 for IERC20;
     using Address for address;
     using AaveAccount for AaveAccount.Data;
@@ -82,9 +81,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILo
     // ---------------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------------
-    constructor(address _weth, address _lst, address _aavePool, address _owner)
+    constructor(address _weth, address _lst, address _aavePool, address _admin)
         ERC20("Beets Aave Looped Sonic", "lS")
-        Ownable(_owner)
     {
         require(_weth != address(0) && _lst != address(0) && _aavePool != address(0), ZeroAddress());
 
@@ -96,8 +94,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILo
         IERC20(_weth).approve(_aavePool, type(uint256).max);
         IERC20(_lst).approve(_aavePool, type(uint256).max);
 
-        // Grant admin role to owner
-        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+        // Grant admin role to admin
+        _grantRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
     // ---------------------------------------------------------------------
@@ -213,7 +211,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILo
         emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
     }
 
-    function initialize() external nonReentrant onlyOwner acquireLock {
+    function initialize() external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) acquireLock {
         require(!isInitialized, AlreadyInitialized());
 
         pullWeth(INIT_AMOUNT);
@@ -473,12 +471,12 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILo
     // Admin functions
     // ---------------------------------------------------------------------
 
-    function setTargetHealthFactor(uint256 _targetHealthFactor) external onlyOwner {
+    function setTargetHealthFactor(uint256 _targetHealthFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, TargetHealthFactorTooLow());
         targetHealthFactor = _targetHealthFactor;
     }
 
-    function setAllowedUnwindSlippage(uint256 _allowedUnwindSlippage) external onlyOwner {
+    function setAllowedUnwindSlippage(uint256 _allowedUnwindSlippage) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_allowedUnwindSlippage <= MAX_UNWIND_SLIPPAGE, SlippageTooHigh());
         allowedUnwindSlippage = _allowedUnwindSlippage;
     }
@@ -490,19 +488,19 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILo
         _setUnwindsPaused(true);
     }
 
-    function setDepositsPaused(bool _paused) external onlyOwner {
+    function setDepositsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDepositsPaused(_paused);
     }
 
-    function setWithdrawsPaused(bool _paused) external onlyOwner {
+    function setWithdrawsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setWithdrawsPaused(_paused);
     }
 
-    function setDonationsPaused(bool _paused) external onlyOwner {
+    function setDonationsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDonationsPaused(_paused);
     }
 
-    function setUnwindsPaused(bool _paused) external onlyOwner {
+    function setUnwindsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setUnwindsPaused(_paused);
     }
 
