@@ -26,6 +26,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {AaveAccount} from "./libraries/AaveAccount.sol";
 import {AaveAccountComparison} from "./libraries/AaveAccountComparison.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
+import {ILoopedSonicVault} from "./interfaces/ILoopedSonicVault.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -33,7 +34,7 @@ import {console} from "forge-std/console.sol";
  * @notice Vault that lets users create a leveraged wstETH position on Aave via an atomic, flash‑loan‑style callback.
  *         Vault shares are ERC20 and track a proportional claim on net asset value (ETH terms).
  */
-contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
+contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard, ILoopedSonicVault {
     using SafeERC20 for IERC20;
     using Address for address;
     using AaveAccount for AaveAccount.Data;
@@ -52,30 +53,6 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
     uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
 
-    // ---------------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------------
-    event Deposit(address indexed caller, address indexed receiver, uint256 sharesMinted, uint256 navIncreaseEth);
-    event Withdraw(address indexed caller, uint256 sharesBurned, uint256 navDecreaseEth);
-    event Initialize(address indexed caller, address indexed receiver, uint256 sharesMinted, uint256 navIncreaseEth);
-    event Unwind(address indexed caller, uint256 lstAmountCollateralWithdrawn, uint256 wethAmountDebtRepaid);
-    event Donate(
-        address indexed caller, uint256 totalAmountDonatedEth, uint256 wethAmountDonated, uint256 lstAmountDonated
-    );
-    event StakeWeth(address indexed caller, uint256 wethAmountDeposited, uint256 lstAmountReceived);
-    event AaveSupplyLst(address indexed caller, uint256 lstAmountSupplied);
-    event AaveWithdrawLst(address indexed caller, uint256 lstAmountWithdrawn);
-    event AaveBorrowWeth(address indexed caller, uint256 wethAmountBorrowed);
-    event AaveRepayWeth(address indexed caller, uint256 wethAmountRepaid);
-    event SendWeth(address indexed caller, address indexed to, uint256 amount);
-    event SendLst(address indexed caller, address indexed to, uint256 amount);
-    event PullWeth(address indexed caller, address indexed from, uint256 amount);
-    event PullLst(address indexed caller, address indexed from, uint256 amount);
-
-    event DepositsPausedChanged(bool paused);
-    event WithdrawsPausedChanged(bool paused);
-    event DonationsPausedChanged(bool paused);
-    event UnwindsPausedChanged(bool paused);
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
@@ -109,7 +86,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         ERC20("Beets Aave Looped Sonic", "lS")
         Ownable(_owner)
     {
-        require(_weth != address(0) && _lst != address(0) && _aavePool != address(0), "Zero addr");
+        require(_weth != address(0) && _lst != address(0) && _aavePool != address(0), ZeroAddress());
 
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
@@ -127,19 +104,19 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     // Modifiers
     // ---------------------------------------------------------------------
     modifier onlyWhenLocked() {
-        require(locked, "Not locked");
-        require(msg.sender == allowedCaller, "Not allowed");
+        require(locked, NotLocked());
+        require(msg.sender == allowedCaller, NotAllowed());
 
         _;
     }
 
     modifier onlyWhenNotLocked() {
-        require(!locked, "Locked");
+        require(!locked, Locked());
         _;
     }
 
     modifier acquireLock() {
-        require(!locked, "Op in progress");
+        require(!locked, Locked());
 
         locked = true;
         allowedCaller = msg.sender;
@@ -147,15 +124,15 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         _;
 
         // You must clear your session balance by the end of any operation that acquires a lock
-        require(_wethSessionBalance == 0, "WETH session balance != 0");
-        require(_lstSessionBalance == 0, "LST session balance != 0");
+        require(_wethSessionBalance == 0, WETHSessionBalanceNotZero());
+        require(_lstSessionBalance == 0, LSTSessionBalanceNotZero());
 
         locked = false;
         allowedCaller = address(0);
     }
 
     modifier whenInitialized() {
-        require(isInitialized, "Not initialized");
+        require(isInitialized, NotInitialized());
         _;
     }
 
@@ -168,7 +145,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
      * @param callbackData Arbitrary calldata forwarded to the callback.
      */
     function deposit(address receiver, bytes calldata callbackData) external nonReentrant whenInitialized acquireLock {
-        require(!depositsPaused, "Deposits paused");
+        require(!depositsPaused, DepositsPaused());
 
         AaveAccountComparison.Data memory data;
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
@@ -184,9 +161,9 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         data.accountAfter = _loadAaveAccountData(ethPrice, lstPrice);
         uint256 navIncreaseEth = data.navIncreaseEth();
 
-        require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, "Net change < min");
+        require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, NavIncreaseBelowMin());
 
-        require(data.checkHealthFactorAfterDeposit(targetHealthFactor), "HF < target");
+        require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // we issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
         uint256 shares = totalSupply() * data.navIncreaseBase() / data.accountBefore.netAssetValueBase();
@@ -206,8 +183,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         whenInitialized
         acquireLock
     {
-        require(!withdrawsPaused, "Withdraws paused");
-        require(sharesToRedeem > MIN_SHARES_TO_REDEEM, "Not enough shares");
+        require(!withdrawsPaused, WithdrawsPaused());
+        require(sharesToRedeem > MIN_SHARES_TO_REDEEM, NotEnoughShares());
 
         AaveAccountComparison.Data memory data;
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
@@ -229,15 +206,15 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         data.accountAfter = _loadAaveAccountData(ethPrice, lstPrice);
 
         // TODO: investigate what is the best margin to use here
-        require(data.checkDebtAfterWithdraw(sharesToRedeem, totalSupplyBefore), "Debt != expected");
-        require(data.checkCollateralAfterWithdraw(sharesToRedeem, totalSupplyBefore), "Collateral != expected");
-        require(data.checkNavAfterWithdraw(sharesToRedeem, totalSupplyBefore), "Nav != expected");
+        require(data.checkDebtAfterWithdraw(sharesToRedeem, totalSupplyBefore), InvalidDebtAfterWithdraw());
+        require(data.checkCollateralAfterWithdraw(sharesToRedeem, totalSupplyBefore), InvalidCollateralAfterWithdraw());
+        require(data.checkNavAfterWithdraw(sharesToRedeem, totalSupplyBefore), InvalidNavAfterWithdraw());
 
         emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
     }
 
     function initialize() external nonReentrant onlyOwner acquireLock {
-        require(!isInitialized, "Already initialized");
+        require(!isInitialized, AlreadyInitialized());
 
         pullWeth(INIT_AMOUNT);
 
@@ -251,7 +228,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
         AaveAccount.Data memory aaveAccount = _loadAaveAccountData(ethPrice, lstPrice);
 
-        require(aaveAccount.totalDebtBase == 0, "Debt != 0");
+        require(aaveAccount.totalDebtBase == 0, DebtNotZero());
 
         // Since the vault's nav was 0 before initialization, the amount of shares to mint is the nav, valued in ETH
         uint256 sharesToMint = aaveAccount.netAssetValueInEth();
@@ -272,8 +249,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         whenInitialized
         acquireLock
     {
-        require(!unwindsPaused, "Unwinds paused");
-        require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, "Unwind amount < min");
+        require(!unwindsPaused, UnwindsPaused());
+        require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, UnwindAmountBelowMin());
 
         aaveWithdrawLst(lstAmountToWithdraw);
 
@@ -292,7 +269,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
 
         allowedCaller = msg.sender;
 
-        require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippage) / 1e18, "Not enough WETH");
+        require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippage) / 1e18, NotEnoughWETH());
 
         pullWeth(wethAmount);
 
@@ -308,8 +285,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
         whenInitialized
         acquireLock
     {
-        require(!donationsPaused, "Donations paused");
-        require(wethAmount > 0 || lstAmount > 0, "0 amt");
+        require(!donationsPaused, DonationsPaused());
+        require(wethAmount > 0 || lstAmount > 0, ZeroAmount());
 
         if (wethAmount > 0) {
             pullWeth(wethAmount);
@@ -333,7 +310,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     // ---------------------------------------------------------------------
 
     function stakeWeth(uint256 amount) public onlyWhenLocked returns (uint256 lstAmount) {
-        require(amount >= MIN_LST_DEPOSIT, "Not enough WETH");
+        require(amount >= MIN_LST_DEPOSIT, AmountLessThanMin());
 
         _decrementWethSessionBalance(amount);
 
@@ -348,7 +325,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function aaveSupplyLst(uint256 amount) public onlyWhenLocked {
-        require(amount > 0, "0 amt");
+        require(amount > 0, ZeroAmount());
 
         _decrementLstSessionBalance(amount);
 
@@ -358,7 +335,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function aaveWithdrawLst(uint256 amount) public onlyWhenLocked {
-        require(amount > 0, "0 amt");
+        require(amount > 0, ZeroAmount());
 
         AAVE_POOL.withdraw(address(LST), amount, address(this));
 
@@ -368,7 +345,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function aaveBorrowWeth(uint256 amount) public onlyWhenLocked {
-        require(amount > 0, "0 amt");
+        require(amount > 0, ZeroAmount());
 
         AAVE_POOL.borrow(address(WETH), amount, VARIABLE_INTEREST_RATE, 0, address(this));
 
@@ -378,7 +355,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function aaveRepayWeth(uint256 amount) public onlyWhenLocked {
-        require(amount > 0, "0 amt");
+        require(amount > 0, ZeroAmount());
 
         _decrementWethSessionBalance(amount);
 
@@ -388,7 +365,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function sendWeth(address to, uint256 amount) public onlyWhenLocked {
-        require(amount > 0 && to != address(0), "Bad args");
+        require(amount > 0, ZeroAmount());
+        require(to != address(0), ZeroAddress());
 
         IERC20(address(WETH)).safeTransfer(to, amount);
 
@@ -398,7 +376,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function sendLst(address to, uint256 amount) public onlyWhenLocked {
-        require(amount > 0 && to != address(0), "Bad args");
+        require(amount > 0, ZeroAmount());
+        require(to != address(0), ZeroAddress());
 
         IERC20(address(LST)).safeTransfer(to, amount);
 
@@ -408,7 +387,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function pullWeth(uint256 amount) public onlyWhenLocked {
-        require(amount > 0, "0 amt");
+        require(amount > 0, ZeroAmount());
 
         IERC20(address(WETH)).safeTransferFrom(msg.sender, address(this), amount);
 
@@ -418,7 +397,7 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function pullLst(uint256 amount) public onlyWhenLocked {
-        require(amount > 0, "0 amt");
+        require(amount > 0, ZeroAmount());
 
         IERC20(address(LST)).safeTransferFrom(msg.sender, address(this), amount);
 
@@ -482,8 +461,8 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     {
         uint256 totalSupply = totalSupply();
 
-        require(shares > 0, "0 shares");
-        require(shares <= totalSupply, "shares > total supply");
+        require(shares > 0, ZeroShares());
+        require(shares <= totalSupply, SharesExceedTotalSupply());
 
         AaveAccount.Data memory aaveAccount = getVaultAaveAccountData();
         collateralInLst = aaveAccount.proportionalCollateralInLst(shares, totalSupply);
@@ -495,12 +474,12 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     // ---------------------------------------------------------------------
 
     function setTargetHealthFactor(uint256 _targetHealthFactor) external onlyOwner {
-        require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, "Target HF too low");
+        require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, TargetHealthFactorTooLow());
         targetHealthFactor = _targetHealthFactor;
     }
 
     function setAllowedUnwindSlippage(uint256 _allowedUnwindSlippage) external onlyOwner {
-        require(_allowedUnwindSlippage <= MAX_UNWIND_SLIPPAGE, "Slippage too high");
+        require(_allowedUnwindSlippage <= MAX_UNWIND_SLIPPAGE, SlippageTooHigh());
         allowedUnwindSlippage = _allowedUnwindSlippage;
     }
 
@@ -572,13 +551,13 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     }
 
     function _decrementWethSessionBalance(uint256 amount) private {
-        require(_wethSessionBalance >= amount, "Insufficient WETH session balance");
+        require(_wethSessionBalance >= amount, InsufficientWETHSessionBalance());
 
         _wethSessionBalance -= amount;
     }
 
     function _decrementLstSessionBalance(uint256 amount) private {
-        require(_lstSessionBalance >= amount, "Insufficient LST session balance");
+        require(_lstSessionBalance >= amount, InsufficientLSTSessionBalance());
 
         _lstSessionBalance -= amount;
     }
@@ -594,6 +573,6 @@ contract LoopedSonicVault is ERC20, Ownable, AccessControl, ReentrancyGuard {
     receive() external payable {
         // Only accept ETH from the WETH contract. The vault calls WETH.withdraw to unwrap WETH before
         // calling stake on the LST contract.
-        require(msg.sender == address(WETH), "Not WETH");
+        require(msg.sender == address(WETH), SenderNotWethContract());
     }
 }
