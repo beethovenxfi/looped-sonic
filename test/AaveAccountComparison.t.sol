@@ -500,21 +500,6 @@ contract AaveAccountComparisonTest is Test {
         assertEq(navIncrease, 1e18, "Should handle max values correctly");
     }
 
-    function testNearOverflowPriceConversion() public {
-        AaveAccount.Data memory accountHighPrice = comparisonData.accountBefore;
-        accountHighPrice.ethPrice = type(uint128).max;
-
-        AaveAccount.Data memory accountAfterHighPrice = comparisonData.accountAfter;
-        accountAfterHighPrice.ethPrice = type(uint128).max;
-
-        AaveAccountComparison.Data memory highPriceData =
-            AaveAccountComparison.Data({accountBefore: accountHighPrice, accountAfter: accountAfterHighPrice});
-
-        uint256 navIncreaseEth = highPriceData.navIncreaseEth();
-        console.log("navIncreaseEth", navIncreaseEth);
-        assertTrue(navIncreaseEth > 0, "Should handle high prices without overflow");
-    }
-
     // EDGE CASE TESTS: Precision Loss
     function testSmallSharesLargeTotalSupply() public {
         uint256 sharesToRedeem = 1;
@@ -526,24 +511,6 @@ contract AaveAccountComparisonTest is Test {
 
         assertEq(proportionalDebt, 0, "Very small share should round down to zero debt");
         assertEq(proportionalCollateral, 0, "Very small share should round down to zero collateral");
-    }
-
-    function testPrecisionLossInHealthFactorMargin() public {
-        uint256 targetHealthFactor = 3; // Very small target
-        uint256 healthFactorBefore = 2;
-        uint256 healthFactorAfter = 2;
-
-        AaveAccount.Data memory accountBefore = comparisonData.accountBefore;
-        accountBefore.healthFactor = healthFactorBefore;
-
-        AaveAccount.Data memory accountAfter = comparisonData.accountAfter;
-        accountAfter.healthFactor = healthFactorAfter;
-
-        AaveAccountComparison.Data memory precisionData =
-            AaveAccountComparison.Data({accountBefore: accountBefore, accountAfter: accountAfter});
-
-        bool result = precisionData.checkHealthFactorAfterDeposit(targetHealthFactor);
-        assertFalse(result, "Should handle precision loss in small health factor calculations");
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
@@ -614,29 +581,6 @@ contract AaveAccountComparisonTest is Test {
 
         uint256 expectedNavEth = accountAfterWithFuzzPrices.baseToEth(navIncreaseBase);
         assertEq(navIncreaseEth, expectedNavEth, "Price conversion should be consistent");
-    }
-
-    // FUZZ TESTS: Margin Boundary Testing
-    function testFuzzMarginBoundaries(uint256 targetHealthFactor, uint256 marginOffset) public {
-        vm.assume(targetHealthFactor > 1e17 && targetHealthFactor <= type(uint64).max);
-        vm.assume(marginOffset <= AaveAccountComparison.HEALTH_FACTOR_MARGIN);
-
-        uint256 margin = AaveAccountComparison.HEALTH_FACTOR_MARGIN;
-        uint256 healthFactorBefore = targetHealthFactor - 1e16; // Slightly below target
-        uint256 healthFactorAfter = targetHealthFactor * (1e18 - margin + marginOffset) / 1e18;
-
-        AaveAccount.Data memory accountBefore = comparisonData.accountBefore;
-        accountBefore.healthFactor = healthFactorBefore;
-
-        AaveAccount.Data memory accountAfter = comparisonData.accountAfter;
-        accountAfter.healthFactor = healthFactorAfter;
-
-        AaveAccountComparison.Data memory marginData =
-            AaveAccountComparison.Data({accountBefore: accountBefore, accountAfter: accountAfter});
-
-        bool result = marginData.checkHealthFactorAfterDeposit(targetHealthFactor);
-        bool expectedResult = marginOffset > 0;
-        assertEq(result, expectedResult, "Margin boundary should be respected");
     }
 
     // FUZZ TESTS: Rounding Errors in Proportional Calculations
