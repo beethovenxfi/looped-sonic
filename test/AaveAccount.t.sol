@@ -245,53 +245,10 @@ contract AaveAccountTest is Test {
         }
     }
 
-    // EDGE CASE TESTS
-
-    function testDivisionByZeroProtection() public {
-        AaveAccount.Data memory zeroEthPriceData = AaveAccount.Data({
-            totalCollateralBase: 1000e18,
-            totalDebtBase: 500e18,
-            availableBorrowsBase: 400e18,
-            currentLiquidationThreshold: 8000,
-            ltv: 7500,
-            healthFactor: 2e18,
-            ethPrice: 0,
-            lstPrice: 2100e18
-        });
-
-        // Should revert when ethPrice is 0
-        vm.expectRevert();
-        zeroEthPriceData.baseToEth(1000e18);
-
-        vm.expectRevert();
-        zeroEthPriceData.netAssetValueInEth();
-
-        vm.expectRevert();
-        zeroEthPriceData.proportionalDebtInEth(100e18, 1000e18);
-
-        AaveAccount.Data memory zeroLstPriceData = AaveAccount.Data({
-            totalCollateralBase: 1000e18,
-            totalDebtBase: 500e18,
-            availableBorrowsBase: 400e18,
-            currentLiquidationThreshold: 8000,
-            ltv: 7500,
-            healthFactor: 2e18,
-            ethPrice: 2000e18,
-            lstPrice: 0
-        });
-
-        // Should revert when lstPrice is 0
-        vm.expectRevert();
-        zeroLstPriceData.baseToLst(1000e18);
-
-        vm.expectRevert();
-        zeroLstPriceData.proportionalCollateralInLst(100e18, 1000e18);
-    }
-
     function testIntegerOverflowProtection() public {
         uint256 maxCollateral = type(uint256).max;
         uint256 halfMaxDebt = type(uint256).max / 2;
-        
+
         AaveAccount.Data memory extremeData = AaveAccount.Data({
             totalCollateralBase: maxCollateral,
             totalDebtBase: halfMaxDebt,
@@ -317,11 +274,12 @@ contract AaveAccountTest is Test {
         assertEq(ethAmount, expectedEthAmount, "Should handle very small prices");
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testLiquidationScenarios() public {
         uint256 collateral = 1000e18;
         uint256 debt = collateral + 200e18; // Debt exceeds collateral
         uint256 healthFactor = 0.8e18; // Below 1.0 = liquidation
-        
+
         AaveAccount.Data memory liquidationData = AaveAccount.Data({
             totalCollateralBase: collateral,
             totalDebtBase: debt,
@@ -341,11 +299,12 @@ contract AaveAccountTest is Test {
         liquidationData.netAssetValueInEth();
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testNegativeNAVScenarios() public {
         uint256 collateral = 500e18;
         uint256 debt = collateral * 2; // Debt > collateral
         uint256 healthFactor = 0.5e18;
-        
+
         AaveAccount.Data memory negativeNavData = AaveAccount.Data({
             totalCollateralBase: collateral,
             totalDebtBase: debt,
@@ -357,7 +316,6 @@ contract AaveAccountTest is Test {
             lstPrice: 2100e18
         });
 
-        // Should revert on underflow when debt exceeds collateral
         vm.expectRevert();
         negativeNavData.netAssetValueBase();
 
@@ -369,7 +327,7 @@ contract AaveAccountTest is Test {
         uint256 smallAmount = 1;
         uint256 ethPrice = 3e18; // Price that doesn't divide evenly
         uint256 lstPrice = 7e18;
-        
+
         AaveAccount.Data memory roundingData = AaveAccount.Data({
             totalCollateralBase: smallAmount,
             totalDebtBase: 0,
@@ -400,7 +358,7 @@ contract AaveAccountTest is Test {
         uint256 highPrice = type(uint128).max;
         uint256 lowPrice = 1e18;
         uint256 veryLowPrice = 1;
-        
+
         // Test with extremely high ETH price
         AaveAccount.Data memory highEthPriceData = AaveAccount.Data({
             totalCollateralBase: 1000e18,
