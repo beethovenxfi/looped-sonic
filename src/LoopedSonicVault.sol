@@ -146,13 +146,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         AaveAccountComparison.Data memory data;
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
 
-        // -------------------- Pre‑state snapshot -------------------------
+        // Store the aave account state before the callback performs the deposit
         data.accountBefore = _loadAaveAccountData(ethPrice, lstPrice);
 
-        // We execute the callback, giving control back to the caller to perform the deposit
+        // Execute the callback, giving control back to the caller to perform the deposit
         (msg.sender).functionCall(callbackData);
-
-        // -------------------- Post checks -------------------------------
 
         data.accountAfter = _loadAaveAccountData(ethPrice, lstPrice);
         uint256 navIncreaseEth = data.navIncreaseEth();
@@ -161,7 +159,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
-        // we issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
+        // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
         uint256 shares = totalSupply() * data.navIncreaseBase() / data.accountBefore.netAssetValueBase();
 
         _mint(receiver, shares);
@@ -208,7 +206,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
     }
 
-    function initialize() external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) acquireLock {
+    function initialize() external nonReentrant acquireLock {
         require(!isInitialized, AlreadyInitialized());
 
         pullWeth(INIT_AMOUNT);
