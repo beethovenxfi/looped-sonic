@@ -99,14 +99,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     // ---------------------------------------------------------------------
     // Modifiers
     // ---------------------------------------------------------------------
-    modifier onlyWhenLocked() {
+    modifier whenLocked() {
         require(locked, NotLocked());
         require(msg.sender == allowedCaller, NotAllowed());
 
         _;
     }
 
-    modifier onlyWhenNotLocked() {
+    modifier whenNotLocked() {
         require(!locked, Locked());
         _;
     }
@@ -171,7 +171,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
     /**
      * @param sharesToRedeem Amount of vault shares to burn.
-     * @param callbackData          Arbitrary calldata forwarded to the callback.
+     * @param callbackData   Arbitrary calldata forwarded to the callback.
      */
     function withdraw(uint256 sharesToRedeem, bytes calldata callbackData)
         external
@@ -304,7 +304,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     // Vault primitives (ONLY callable during an active lock)
     // ---------------------------------------------------------------------
 
-    function stakeWeth(uint256 amount) public onlyWhenLocked returns (uint256 lstAmount) {
+    function stakeWeth(uint256 amount) public whenLocked returns (uint256 lstAmount) {
         require(amount >= MIN_LST_DEPOSIT, AmountLessThanMin());
 
         _decrementWethSessionBalance(amount);
@@ -319,7 +319,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit StakeWeth(allowedCaller, amount, lstAmount);
     }
 
-    function aaveSupplyLst(uint256 amount) public onlyWhenLocked {
+    function aaveSupplyLst(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
         _decrementLstSessionBalance(amount);
@@ -329,7 +329,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit AaveSupplyLst(allowedCaller, amount);
     }
 
-    function aaveWithdrawLst(uint256 amount) public onlyWhenLocked {
+    function aaveWithdrawLst(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
         AAVE_POOL.withdraw(address(LST), amount, address(this));
@@ -339,7 +339,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit AaveWithdrawLst(allowedCaller, amount);
     }
 
-    function aaveBorrowWeth(uint256 amount) public onlyWhenLocked {
+    function aaveBorrowWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
         AAVE_POOL.borrow(address(WETH), amount, VARIABLE_INTEREST_RATE, 0, address(this));
@@ -349,7 +349,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit AaveBorrowWeth(allowedCaller, amount);
     }
 
-    function aaveRepayWeth(uint256 amount) public onlyWhenLocked {
+    function aaveRepayWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
         _decrementWethSessionBalance(amount);
@@ -359,7 +359,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit AaveRepayWeth(allowedCaller, amount);
     }
 
-    function sendWeth(address to, uint256 amount) public onlyWhenLocked {
+    function sendWeth(address to, uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
         require(to != address(0), ZeroAddress());
 
@@ -370,7 +370,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit SendWeth(allowedCaller, to, amount);
     }
 
-    function sendLst(address to, uint256 amount) public onlyWhenLocked {
+    function sendLst(address to, uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
         require(to != address(0), ZeroAddress());
 
@@ -381,7 +381,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit SendLst(allowedCaller, to, amount);
     }
 
-    function pullWeth(uint256 amount) public onlyWhenLocked {
+    function pullWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
         IERC20(address(WETH)).safeTransferFrom(msg.sender, address(this), amount);
@@ -391,7 +391,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit PullWeth(allowedCaller, msg.sender, amount);
     }
 
-    function pullLst(uint256 amount) public onlyWhenLocked {
+    function pullLst(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
         IERC20(address(LST)).safeTransferFrom(msg.sender, address(this), amount);
@@ -417,11 +417,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         return _loadAaveAccountData(ethPrice, lstPrice);
     }
 
-    function totalAssets() public view onlyWhenNotLocked returns (uint256) {
+    function totalAssets() public view whenNotLocked returns (uint256) {
         return getVaultAaveAccountData().netAssetValueInEth();
     }
 
-    function convertToAssets(uint256 shares) public view onlyWhenNotLocked returns (uint256) {
+    function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
         uint256 totalShares = totalSupply();
 
@@ -432,7 +432,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         return (shares * assetsTotal) / totalShares;
     }
 
-    function convertToShares(uint256 assets) public view onlyWhenNotLocked returns (uint256) {
+    function convertToShares(uint256 assets) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
         uint256 totalShares = totalSupply();
 
@@ -443,7 +443,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         return (assets * totalShares) / assetsTotal;
     }
 
-    function getRate() public view onlyWhenNotLocked returns (uint256) {
+    function getRate() public view whenNotLocked returns (uint256) {
         // The rate is the amount of assets that 1 share is worth
         return convertToAssets(1 ether);
     }
@@ -451,7 +451,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     function getCollateralAndDebtForShares(uint256 shares)
         public
         view
-        onlyWhenNotLocked
+        whenNotLocked
         returns (uint256 collateralInLst, uint256 debtInEth)
     {
         uint256 totalSupply = totalSupply();
