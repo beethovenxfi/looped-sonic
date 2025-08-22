@@ -73,7 +73,9 @@ library AaveAccountComparison {
         uint256 navBefore = data.accountBefore.netAssetValueBase();
         uint256 navForShares = navBefore * sharesToRedeem / totalSupplyBefore;
         uint256 expectedNavAfter = navBefore - navForShares;
+        uint256 navAfter = data.accountAfter.netAssetValueBase();
 
-        return data.accountAfter.netAssetValueBase() == expectedNavAfter;
+        // Account for a rounding error of 1 in the math above
+        return navAfter == expectedNavAfter || navAfter == expectedNavAfter - 1;
     }
 }
