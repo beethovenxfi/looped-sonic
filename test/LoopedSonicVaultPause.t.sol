@@ -13,7 +13,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     // Individual Pause Function Tests
     // =============================================================================
 
-    function testSetDepositsPaused() public whenInitialized {
+    function testSetDepositsPaused() public {
         assertFalse(vault.depositsPaused(), "Deposits should not be paused initially");
 
         asAdmin();
@@ -25,7 +25,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertFalse(vault.depositsPaused(), "Deposits should be unpaused after setting");
     }
 
-    function testSetWithdrawsPaused() public whenInitialized {
+    function testSetWithdrawsPaused() public {
         assertFalse(vault.withdrawsPaused(), "Withdraws should not be paused initially");
 
         asAdmin();
@@ -37,7 +37,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertFalse(vault.withdrawsPaused(), "Withdraws should be unpaused after setting");
     }
 
-    function testSetDonationsPaused() public whenInitialized {
+    function testSetDonationsPaused() public {
         assertFalse(vault.donationsPaused(), "Donations should not be paused initially");
 
         asAdmin();
@@ -49,7 +49,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertFalse(vault.donationsPaused(), "Donations should be unpaused after setting");
     }
 
-    function testSetUnwindsPaused() public whenInitialized {
+    function testSetUnwindsPaused() public {
         assertFalse(vault.unwindsPaused(), "Unwinds should not be paused initially");
 
         asAdmin();
@@ -65,7 +65,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     // Global Pause Function Tests
     // =============================================================================
 
-    function testGlobalPause() public whenInitialized {
+    function testGlobalPause() public {
         assertFalse(vault.depositsPaused(), "Deposits should not be paused initially");
         assertFalse(vault.withdrawsPaused(), "Withdraws should not be paused initially");
         assertFalse(vault.donationsPaused(), "Donations should not be paused initially");
@@ -84,7 +84,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     // Pause Access Control Tests
     // =============================================================================
 
-    function testOnlyAdminCanSetDepositsPaused() public whenInitialized {
+    function testOnlyAdminCanSetDepositsPaused() public {
         vm.expectRevert();
         asUser(user1);
         vault.setDepositsPaused(true);
@@ -98,7 +98,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertTrue(vault.depositsPaused(), "Admin should be able to pause deposits");
     }
 
-    function testOnlyAdminCanSetWithdrawsPaused() public whenInitialized {
+    function testOnlyAdminCanSetWithdrawsPaused() public {
         vm.expectRevert();
         asUser(user1);
         vault.setWithdrawsPaused(true);
@@ -112,7 +112,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertTrue(vault.withdrawsPaused(), "Admin should be able to pause withdraws");
     }
 
-    function testOnlyAdminCanSetDonationsPaused() public whenInitialized {
+    function testOnlyAdminCanSetDonationsPaused() public {
         vm.expectRevert();
         asUser(user1);
         vault.setDonationsPaused(true);
@@ -126,7 +126,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertTrue(vault.donationsPaused(), "Admin should be able to pause donations");
     }
 
-    function testOnlyAdminCanSetUnwindsPaused() public whenInitialized {
+    function testOnlyAdminCanSetUnwindsPaused() public {
         vm.expectRevert();
         asUser(user1);
         vault.setUnwindsPaused(true);
@@ -140,7 +140,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertTrue(vault.unwindsPaused(), "Admin should be able to pause unwinds");
     }
 
-    function testOnlyOperatorCanCallGlobalPause() public whenInitialized {
+    function testOnlyOperatorCanCallGlobalPause() public {
         vm.expectRevert();
         asUser(user1);
         vault.pause();
@@ -158,7 +158,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     // Pause Effects on Operations Tests
     // =============================================================================
 
-    function testDepositPauseBlocksDeposits() public whenInitialized {
+    function testDepositPauseBlocksDeposits() public {
         asAdmin();
         vault.setDepositsPaused(true);
 
@@ -171,7 +171,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vault.deposit(user1, callbackData);
     }
 
-    function testWithdrawPauseBlocksWithdraws() public whenInitialized {
+    function testWithdrawPauseBlocksWithdraws() public {
         _setupStandardDeposit();
 
         asAdmin();
@@ -183,7 +183,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vault.withdraw(1, callbackData);
     }
 
-    function testDonationPauseBlocksDonations() public whenInitialized {
+    function testDonationPauseBlocksDonations() public {
         asAdmin();
         vault.setDonationsPaused(true);
 
@@ -195,7 +195,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vm.stopPrank();
     }
 
-    function testUnwindPauseBlocksUnwinds() public whenInitialized {
+    function testUnwindPauseBlocksUnwinds() public {
         _setupStandardDeposit();
 
         asAdmin();
@@ -207,7 +207,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vm.stopPrank();
     }
 
-    function testGlobalPauseBlocksAllOperations() public whenInitialized {
+    function testGlobalPauseBlocksAllOperations() public {
         _setupStandardDeposit();
 
         asOperator();
@@ -248,7 +248,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     // Pause State Persistence Tests
     // =============================================================================
 
-    function testPauseStateDoesNotChangeWhenSettingSameValue() public whenInitialized {
+    function testPauseStateDoesNotChangeWhenSettingSameValue() public {
         // Initially false, setting to false should not emit event
         vm.recordLogs();
         asAdmin();
@@ -267,7 +267,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertEq(vm.getRecordedLogs().length, 0, "Should not emit event when setting same value");
     }
 
-    function testOperationsWorkAfterUnpause() public whenInitialized {
+    function testOperationsWorkAfterUnpause() public {
         // Pause all operations
         asOperator();
         vault.pause();

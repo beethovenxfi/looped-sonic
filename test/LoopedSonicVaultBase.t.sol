@@ -129,11 +129,6 @@ contract LoopedSonicVaultBase is Test {
         shares = _depositToVault(user1, depositAmount, 0);
     }
 
-    modifier whenInitialized() {
-        require(vault.isInitialized(), "Vault must be initialized");
-        _;
-    }
-
     function asUser(address user) internal {
         vm.prank(user);
     }
