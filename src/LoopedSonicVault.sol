@@ -50,6 +50,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
     uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
+    uint256 public constant DONATION_COOLDOWN = 1 hours;
+    uint256 public constant DONATION_MAX_PERCENT = 0.01e18; // 1%
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
@@ -67,6 +69,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     bool public withdrawsPaused = false;
     bool public donationsPaused = false;
     bool public unwindsPaused = false;
+
+    uint256 public lastDonationTime;
 
     // ---------------------------------------------------------------------
     // Flash‑accounting operation state (transient; zeroed every execution)
@@ -230,6 +234,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         // We use address(1) since openzeppelin's ERC20 does not allow minting to the zero address
         _mint(address(1), sharesToMint);
 
+        lastDonationTime = block.timestamp;
+
         isInitialized = true;
 
         emit Initialize(msg.sender, address(1), sharesToMint, sharesToMint);
@@ -281,6 +287,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(!donationsPaused, DonationsPaused());
         require(wethAmount > 0 || lstAmount > 0, ZeroAmount());
 
+        require(block.timestamp - lastDonationTime > DONATION_COOLDOWN, DonationCooldownNotPassed());
+
+        AaveAccount.Data memory data = getVaultAaveAccountData();
+
         if (wethAmount > 0) {
             pullWeth(wethAmount);
             stakeWeth(wethAmount);
@@ -292,8 +302,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         uint256 totalAmountDonatedEth = _lstToEth(_lstSessionBalance);
 
+        require(
+            totalAmountDonatedEth <= data.netAssetValueInEth() * DONATION_MAX_PERCENT / 1e18, DonationAmountTooHigh()
+        );
+
         // We only supply the LST to the Aave pool, we leave the task of looping to the next deposit
         aaveSupplyLst(_lstSessionBalance);
+
+        lastDonationTime = block.timestamp;
 
         emit Donate(msg.sender, totalAmountDonatedEth, wethAmount, lstAmount);
     }
