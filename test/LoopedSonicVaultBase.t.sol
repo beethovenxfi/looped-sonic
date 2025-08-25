@@ -8,9 +8,11 @@ import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
 import {IAavePool} from "../src/interfaces/IAavePool.sol";
 import {AaveAccount} from "../src/libraries/AaveAccount.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 contract LoopedSonicVaultBase is Test {
     using AaveAccount for AaveAccount.Data;
+    using Address for address;
 
     ISonicStaking constant STAKED_SONIC = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
@@ -72,16 +74,19 @@ contract LoopedSonicVaultBase is Test {
         vm.stopPrank();
     }
 
-    function _depositToVault(address user, uint256 wethAmount, uint256 expectedShares)
-        internal
-        returns (uint256 shares)
-    {
+    function _depositToVault(
+        address user,
+        uint256 wethAmount,
+        uint256 expectedShares,
+        bytes memory optionalCallbackData
+    ) internal returns (uint256 shares) {
         vm.prank(user);
         WETH.approve(address(this), wethAmount);
 
         WETH.transferFrom(user, address(this), wethAmount);
 
-        bytes memory callbackData = abi.encodeWithSelector(this._depositCallback.selector, wethAmount);
+        bytes memory callbackData =
+            abi.encodeWithSelector(this._depositCallback.selector, wethAmount, optionalCallbackData);
         uint256 sharesBefore = vault.balanceOf(user);
 
         vault.deposit(user, callbackData);
@@ -126,7 +131,7 @@ contract LoopedSonicVaultBase is Test {
 
     function _setupStandardDeposit() internal returns (uint256 shares) {
         uint256 depositAmount = 10 ether;
-        shares = _depositToVault(user1, depositAmount, 0);
+        shares = _depositToVault(user1, depositAmount, 0, "");
     }
 
     function asUser(address user) internal {
@@ -145,7 +150,7 @@ contract LoopedSonicVaultBase is Test {
         vm.prank(donator);
     }
 
-    function _depositCallback(uint256 initialAssets) external {
+    function _depositCallback(uint256 initialAssets, bytes calldata optionalCallbackData) external {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
         uint256 totalDebt = 0;
@@ -176,7 +181,9 @@ contract LoopedSonicVaultBase is Test {
             currentAssets = borrowAmount;
         }
 
-        //emit PositionLooped(MAX_LOOP_ITERATIONS, totalCollateral, totalDebt);
+        if (optionalCallbackData.length > 0) {
+            address(this).functionCall(optionalCallbackData);
+        }
     }
 
     function _getAmountOfWethToBorrow() internal view returns (uint256) {

@@ -59,6 +59,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     IWETH public immutable WETH;
     ISonicStaking public immutable LST;
     IAavePool public immutable AAVE_POOL;
+    address public immutable LST_A_TOKEN;
+    address public immutable WETH_VARIABLE_DEBT_TOKEN;
 
     bool public isInitialized = false;
 
@@ -91,6 +93,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
         AAVE_POOL = IAavePool(_aavePool);
+        LST_A_TOKEN = AAVE_POOL.getReserveAToken(address(LST));
+        (,, WETH_VARIABLE_DEBT_TOKEN) =
+            AAVE_POOL.ADDRESSES_PROVIDER().getPoolDataProvider().getReserveTokensAddresses(_weth);
 
         // Approve Aave once for both tokens
         IERC20(_weth).approve(_aavePool, type(uint256).max);
@@ -476,6 +481,19 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         AaveAccount.Data memory aaveAccount = getVaultAaveAccountData();
         collateralInLst = aaveAccount.proportionalCollateralInLst(shares, totalSupply);
         debtInEth = aaveAccount.proportionalDebtInEth(shares, totalSupply);
+    }
+
+    function getSessionBalances() public view returns (uint256 wethSessionBalance, uint256 lstSessionBalance) {
+        wethSessionBalance = _wethSessionBalance;
+        lstSessionBalance = _lstSessionBalance;
+    }
+
+    function getAaveLstBalance() public view returns (uint256) {
+        return IERC20(LST_A_TOKEN).balanceOf(address(this));
+    }
+
+    function getAaveWethDebtBalance() public view returns (uint256) {
+        return IERC20(WETH_VARIABLE_DEBT_TOKEN).balanceOf(address(this));
     }
 
     // ---------------------------------------------------------------------

@@ -79,4 +79,6 @@ interface IAavePool {
         bytes calldata params,
         uint16 referralCode
     ) external;
+
+    function getReserveAToken(address asset) external view returns (address);
 }

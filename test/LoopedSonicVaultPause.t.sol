@@ -162,7 +162,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         asAdmin();
         vault.setDepositsPaused(true);
 
-        bytes memory callbackData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether);
+        bytes memory callbackData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether, "");
 
         vm.prank(user1);
         WETH.approve(address(vault), 1 ether);
@@ -213,7 +213,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         asOperator();
         vault.pause();
 
-        bytes memory depositCallbackData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether);
+        bytes memory depositCallbackData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether, "");
 
         bytes memory withdrawCallbackData = abi.encodeWithSelector(this._withdrawCallback.selector, 0.1 ether);
 
@@ -277,7 +277,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vault.setDepositsPaused(false);
 
         // Deposit should work
-        uint256 shares = _depositToVault(user1, 1 ether, 0);
+        uint256 shares = _depositToVault(user1, 1 ether, 0, "");
         assertTrue(shares > 0, "Should be able to deposit after unpause");
 
         // But withdraw should still be blocked

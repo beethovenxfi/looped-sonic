@@ -7,7 +7,7 @@ import {IPoolAddressesProvider} from "../../src/interfaces/IPoolAddressesProvide
 contract MockAavePool is IAavePool {
     mapping(address => uint256) public supplies;
     mapping(address => uint256) public borrows;
-    
+
     struct UserAccountData {
         uint256 totalCollateralBase;
         uint256 totalDebtBase;
@@ -16,7 +16,7 @@ contract MockAavePool is IAavePool {
         uint256 ltv;
         uint256 healthFactor;
     }
-    
+
     mapping(address => UserAccountData) public userAccountData;
 
     function supply(address asset, uint256 amount, address, uint16) external override {
@@ -57,7 +57,7 @@ contract MockAavePool is IAavePool {
         )
     {
         UserAccountData memory data = userAccountData[user];
-        
+
         // If no data is set for the user, return default values
         if (data.totalCollateralBase == 0 && data.totalDebtBase == 0 && data.healthFactor == 0) {
             totalCollateralBase = 1000e18;
@@ -95,8 +95,12 @@ contract MockAavePool is IAavePool {
         bytes calldata params,
         uint16 referralCode
     ) external override {}
-    
+
     function setUserAccountData(address user, UserAccountData memory data) external {
         userAccountData[user] = data;
+    }
+
+    function getReserveAToken(address asset) external view override returns (address) {
+        return address(0);
     }
 }
