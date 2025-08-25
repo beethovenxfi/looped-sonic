@@ -61,6 +61,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     IAavePool public immutable AAVE_POOL;
     address public immutable LST_A_TOKEN;
     address public immutable WETH_VARIABLE_DEBT_TOKEN;
+    uint8 public immutable E_MODE_CATEGORY_ID;
 
     bool public isInitialized = false;
 
@@ -96,6 +97,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         LST_A_TOKEN = AAVE_POOL.getReserveAToken(address(LST));
         (,, WETH_VARIABLE_DEBT_TOKEN) =
             AAVE_POOL.ADDRESSES_PROVIDER().getPoolDataProvider().getReserveTokensAddresses(_weth);
+
+        E_MODE_CATEGORY_ID = 1;
 
         // Approve Aave once for both tokens
         IERC20(_weth).approve(_aavePool, type(uint256).max);
@@ -224,7 +227,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         aaveSupplyLst(_lstSessionBalance);
 
-        AAVE_POOL.setUserEMode(1);
+        AAVE_POOL.setUserEMode(E_MODE_CATEGORY_ID);
         AAVE_POOL.setUserUseReserveAsCollateral(address(LST), true);
 
         (uint256 ethPrice, uint256 lstPrice) = getAssetPrices();
