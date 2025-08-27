@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {AaveAccount} from "../libraries/AaveAccount.sol";
+import {VaultSnapshot} from "../libraries/VaultSnapshot.sol";
 
 /**
  * @title ILoopedSonicVault
@@ -306,17 +306,10 @@ interface ILoopedSonicVault {
     // ---------------------------------------------------------------------
 
     /**
-     * @notice Gets current asset prices from Aave oracle
-     * @return ethPrice The current price of WETH from Aave oracle
-     * @return lstPrice The current price of LST from Aave oracle
+     * @notice Gets the vault's current snapshot including collateral, debt, and health factor
+     * @return snapshot Structured data containing vault's position details
      */
-    function getAssetPrices() external view returns (uint256 ethPrice, uint256 lstPrice);
-
-    /**
-     * @notice Gets the vault's current Aave account data including collateral, debt, and health factor
-     * @return aaveAccount Structured data containing vault's Aave position details
-     */
-    function getVaultAaveAccountData() external view returns (AaveAccount.Data memory aaveAccount);
+    function getVaultSnapshot() external view returns (VaultSnapshot.Data memory snapshot);
 
     /**
      * @notice Gets the total asset value of the vault in ETH terms (net asset value)

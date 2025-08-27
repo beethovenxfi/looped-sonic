@@ -5,13 +5,13 @@ import {Test, console} from "forge-std/Test.sol";
 import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
 import {BalancerLoopedSonicRouter} from "../src/BalancerLoopedSonicRouter.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
-import {AaveAccount} from "../src/libraries/AaveAccount.sol";
+import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IBalancerVault} from "../src/interfaces/IBalancerVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
 
 contract LstLoopDepositorForkTest is Test {
-    using AaveAccount for AaveAccount.Data;
+    using VaultSnapshot for VaultSnapshot.Data;
 
     LoopedSonicVault public vault;
     BalancerLoopedSonicRouter public depositor;
@@ -21,12 +21,13 @@ contract LstLoopDepositorForkTest is Test {
     IWETH constant WSONIC = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
     address constant BALANCER_VAULT = address(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
     address constant OWNER = address(0x5);
+    uint8 constant E_MODE_CATEGORY_ID = 1;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
 
         // Deploy vault
-        vault = new LoopedSonicVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, OWNER);
+        vault = new LoopedSonicVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, E_MODE_CATEGORY_ID, OWNER);
 
         // Deploy depositor
         depositor = new BalancerLoopedSonicRouter(vault, IBalancerVault(BALANCER_VAULT));
@@ -69,14 +70,14 @@ contract LstLoopDepositorForkTest is Test {
         console.log("Final total assets:", finalTotalAssets);
         console.log("Assets increase:", finalTotalAssets - initialTotalAssets);
 
-        AaveAccount.Data memory aaveAccount = vault.getVaultAaveAccountData();
+        VaultSnapshot.Data memory aaveAccount = vault.getVaultSnapshot();
         console.log("health factor", aaveAccount.healthFactor);
-        console.log("total collateral base", aaveAccount.totalCollateralBase);
-        console.log("available borrows base", aaveAccount.availableBorrowsBase);
-        console.log("total debt base", aaveAccount.totalDebtBase);
+        console.log("total collateral base", aaveAccount.lstCollateralAmount);
+        console.log("available borrows base", aaveAccount.availableBorrowsInEth());
+        console.log("total debt base", aaveAccount.wethDebtAmount);
         console.log("net asset value in ETH", aaveAccount.netAssetValueInEth());
-        console.log("collateral in ETH", aaveAccount.baseToEth(aaveAccount.totalCollateralBase));
-        console.log("debt in ETH", aaveAccount.baseToEth(aaveAccount.totalDebtBase));
+        console.log("collateral in ETH", aaveAccount.lstToEth(aaveAccount.lstCollateralAmount));
+        console.log("debt in ETH", aaveAccount.wethDebtAmount);
     }
 
     function testForkWithdraw() public {

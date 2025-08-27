@@ -81,4 +81,9 @@ interface IAavePool {
     ) external;
 
     function getReserveAToken(address asset) external view returns (address);
+
+    function getEModeCategoryCollateralConfig(uint8 categoryId)
+        external
+        view
+        returns (uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus);
 }

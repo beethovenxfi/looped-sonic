@@ -103,4 +103,13 @@ contract MockAavePool is IAavePool {
     function getReserveAToken(address asset) external view override returns (address) {
         return address(0);
     }
+
+    function getEModeCategoryCollateralConfig(uint8 categoryId)
+        external
+        view
+        override
+        returns (uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus)
+    {
+        return (7500, 8000, 0);
+    }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {LoopedSonicVault} from "./LoopedSonicVault.sol";
-import {AaveAccount} from "./libraries/AaveAccount.sol";
+import {VaultSnapshot} from "./libraries/VaultSnapshot.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IBalancerVault} from "./interfaces/IBalancerVault.sol";
 import {IFlashLoanSimpleReceiver} from "./interfaces/IFlashLoanSimpleReceiver.sol";
@@ -11,7 +11,7 @@ import {console} from "forge-std/console.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
-    using AaveAccount for AaveAccount.Data;
+    using VaultSnapshot for VaultSnapshot.Data;
     using SafeERC20 for IERC20;
 
     LoopedSonicVault public immutable VAULT;
@@ -155,10 +155,10 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     }
 
     function _getAmountOfWethToBorrow() internal view returns (uint256) {
-        AaveAccount.Data memory aaveAccount = VAULT.getVaultAaveAccountData();
+        VaultSnapshot.Data memory aaveAccount = VAULT.getVaultSnapshot();
         uint256 targetHealthFactor = VAULT.targetHealthFactor();
-        uint256 availableBorrowInEth = aaveAccount.baseToEth(aaveAccount.availableBorrowsBase);
-        uint256 debtInEth = aaveAccount.baseToEth(aaveAccount.totalDebtBase);
+        uint256 availableBorrowInEth = aaveAccount.availableBorrowsInEth();
+        uint256 debtInEth = aaveAccount.wethDebtAmount;
 
         if (aaveAccount.healthFactor < targetHealthFactor || availableBorrowInEth == 0) {
             return 0;
@@ -170,7 +170,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
             // We calculate the amount we'd need to borrow to reach the target health factor
             // considering we'd deposit that amount back into the pool as collateral
             uint256 targetAmount = ((aaveAccount.healthFactor - targetHealthFactor) * debtInEth)
-                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18());
+                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18);
 
             if (targetAmount < borrowAmount) {
                 // In this instance we'll exceed the target health factor if we borrow the max amount,

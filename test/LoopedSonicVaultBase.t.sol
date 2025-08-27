@@ -6,17 +6,18 @@ import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
 import {IAavePool} from "../src/interfaces/IAavePool.sol";
-import {AaveAccount} from "../src/libraries/AaveAccount.sol";
+import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 
 contract LoopedSonicVaultBase is Test {
-    using AaveAccount for AaveAccount.Data;
+    using VaultSnapshot for VaultSnapshot.Data;
     using Address for address;
 
     ISonicStaking constant STAKED_SONIC = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
     IWETH constant WETH = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
+    uint8 constant E_MODE_CATEGORY_ID = 1;
     LoopedSonicVault public vault;
 
     address public admin = makeAddr("admin");
@@ -32,7 +33,7 @@ contract LoopedSonicVaultBase is Test {
     function setUp() public virtual {
         vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
 
-        vault = new LoopedSonicVault(address(WETH), address(STAKED_SONIC), AAVE_POOL, admin);
+        vault = new LoopedSonicVault(address(WETH), address(STAKED_SONIC), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
         WETH.approve(address(vault), type(uint256).max);
         STAKED_SONIC.approve(address(vault), type(uint256).max);
 
@@ -117,6 +118,7 @@ contract LoopedSonicVaultBase is Test {
         vault.pullWeth(debtInEth);
 
         vault.aaveRepayWeth(debtInEth);
+
         vault.aaveWithdrawLst(collateralInLst);
         uint256 collateralInEth = vault.LST().convertToAssets(collateralInLst);
 
@@ -187,10 +189,10 @@ contract LoopedSonicVaultBase is Test {
     }
 
     function _getAmountOfWethToBorrow() internal view returns (uint256) {
-        AaveAccount.Data memory aaveAccount = vault.getVaultAaveAccountData();
+        VaultSnapshot.Data memory aaveAccount = vault.getVaultSnapshot();
         uint256 targetHealthFactor = vault.targetHealthFactor();
-        uint256 availableBorrowInEth = aaveAccount.baseToEth(aaveAccount.availableBorrowsBase);
-        uint256 debtInEth = aaveAccount.baseToEth(aaveAccount.totalDebtBase);
+        uint256 availableBorrowInEth = aaveAccount.availableBorrowsInEth();
+        uint256 debtInEth = aaveAccount.wethDebtAmount;
 
         if (aaveAccount.healthFactor < targetHealthFactor || availableBorrowInEth == 0) {
             return 0;
@@ -202,7 +204,7 @@ contract LoopedSonicVaultBase is Test {
             // We calculate the amount we'd need to borrow to reach the target health factor
             // considering we'd deposit that amount back into the pool as collateral
             uint256 targetAmount = ((aaveAccount.healthFactor - targetHealthFactor) * debtInEth)
-                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18());
+                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18);
 
             if (targetAmount < borrowAmount) {
                 // In this instance we'll exceed the target health factor if we borrow the max amount,

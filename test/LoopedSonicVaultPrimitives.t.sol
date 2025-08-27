@@ -166,7 +166,7 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         vm.deal(address(this), ethAmount);
         uint256 lstAmount = vault.LST().deposit{value: ethAmount}();
 
-        uint256 aaveLstBalanceBefore = vault.getAaveLstBalance();
+        uint256 aaveLstBalanceBefore = vault.getAaveLstCollateralAmount();
 
         vault.pullLst(lstAmount);
 
@@ -180,10 +180,13 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
 
         assertEq(lstSessionBalanceAfter, 0, "LST session balance should be 0");
 
-        uint256 aaveLstBalanceAfter = vault.getAaveLstBalance();
+        uint256 aaveLstBalanceAfter = vault.getAaveLstCollateralAmount();
 
-        assertEq(
-            aaveLstBalanceAfter, aaveLstBalanceBefore + lstAmount, "Aave LST balance should increase by the lst amount"
+        assertApproxEqAbs(
+            aaveLstBalanceAfter,
+            aaveLstBalanceBefore + lstAmount,
+            1,
+            "Aave LST balance should increase by the lst amount"
         );
 
         vault.aaveWithdrawLst(lstAmount);
@@ -206,14 +209,17 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         vault.pullLst(lstAmount);
         vault.aaveSupplyLst(lstAmount);
 
-        uint256 aaveLstBalanceBefore = vault.getAaveLstBalance();
+        uint256 aaveLstBalanceBefore = vault.getAaveLstCollateralAmount();
 
         vault.aaveWithdrawLst(lstAmount);
 
-        uint256 aaveLstBalanceAfter = vault.getAaveLstBalance();
+        uint256 aaveLstBalanceAfter = vault.getAaveLstCollateralAmount();
 
-        assertEq(
-            aaveLstBalanceAfter, aaveLstBalanceBefore - lstAmount, "Aave LST balance should decrease by the lst amount"
+        assertApproxEqAbs(
+            aaveLstBalanceAfter,
+            aaveLstBalanceBefore - lstAmount,
+            1,
+            "Aave LST balance should decrease by the lst amount"
         );
 
         vault.sendLst(address(this), lstAmount);
@@ -229,11 +235,11 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
     function _testAaveBorrowWethCallback() external {
         uint256 borrowAmount = 1 ether;
 
-        uint256 aaveWethDebtBalanceBefore = vault.getAaveWethDebtBalance();
+        uint256 aaveWethDebtBalanceBefore = vault.getAaveWethDebtAmount();
 
         vault.aaveBorrowWeth(borrowAmount);
 
-        uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtBalance();
+        uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtAmount();
 
         assertEq(
             aaveWethDebtBalanceAfter, aaveWethDebtBalanceBefore + borrowAmount, "Aave WETH debt balance should increase"
@@ -254,11 +260,11 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
 
         vault.aaveBorrowWeth(borrowAmount);
 
-        uint256 aaveWethDebtBalanceBefore = vault.getAaveWethDebtBalance();
+        uint256 aaveWethDebtBalanceBefore = vault.getAaveWethDebtAmount();
 
         vault.aaveRepayWeth(borrowAmount);
 
-        uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtBalance();
+        uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtAmount();
 
         assertEq(
             aaveWethDebtBalanceAfter, aaveWethDebtBalanceBefore - borrowAmount, "Aave WETH debt balance should decrease"
