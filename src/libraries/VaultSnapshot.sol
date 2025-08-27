@@ -9,6 +9,7 @@ library VaultSnapshot {
 
     struct Data {
         uint256 lstCollateralAmount;
+        uint256 lstCollateralAmountInEth;
         uint256 wethDebtAmount;
         uint256 liquidationThreshold;
         uint256 ltv;
@@ -55,6 +56,6 @@ library VaultSnapshot {
     function healthFactor(Data memory data) internal pure returns (uint256) {
         return data.wethDebtAmount == 0
             ? type(uint256).max
-            : data.lstCollateralAmount * data.liquidationThresholdScaled18() / data.wethDebtAmount;
+            : data.lstCollateralAmountInEth * data.liquidationThresholdScaled18() / data.wethDebtAmount;
     }
 }

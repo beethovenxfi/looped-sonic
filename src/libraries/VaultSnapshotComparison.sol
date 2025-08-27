@@ -8,8 +8,7 @@ library VaultSnapshotComparison {
     using VaultSnapshotComparison for Data;
     using VaultSnapshot for VaultSnapshot.Data;
 
-    //uint256 public constant HEALTH_FACTOR_MARGIN = 0.000001e18;
-    uint256 public constant HEALTH_FACTOR_MARGIN = 0.01e18;
+    uint256 public constant HEALTH_FACTOR_MARGIN = 0.000001e18;
 
     struct Data {
         VaultSnapshot.Data accountBefore;
