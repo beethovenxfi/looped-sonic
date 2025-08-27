@@ -34,11 +34,11 @@ library VaultSnapshot {
     }
 
     function availableBorrowsInEth(Data memory data) internal pure returns (uint256) {
-        if (data.lstCollateralAmount == 0) {
+        if (data.lstCollateralAmountInEth == 0) {
             return 0;
         }
 
-        return data.lstCollateralAmount * data.ltv / 10_000 - data.wethDebtAmount;
+        return data.lstCollateralAmountInEth * data.ltv / 10_000 - data.wethDebtAmount;
     }
 
     function ethToLst(Data memory data, uint256 amount) internal view returns (uint256) {
