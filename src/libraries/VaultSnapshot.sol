@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {ISonicStaking} from "../interfaces/ISonicStaking.sol";
 
 library VaultSnapshot {
     using VaultSnapshot for Data;
@@ -14,11 +13,10 @@ library VaultSnapshot {
         uint256 liquidationThreshold;
         uint256 ltv;
         uint256 vaultTotalSupply;
-        ISonicStaking lst;
     }
 
-    function netAssetValueInEth(Data memory data) internal view returns (uint256) {
-        return data.lstToEth(data.lstCollateralAmount) - data.wethDebtAmount;
+    function netAssetValueInEth(Data memory data) internal pure returns (uint256) {
+        return data.lstCollateralAmountInEth - data.wethDebtAmount;
     }
 
     function proportionalCollateralInLst(Data memory data, uint256 shares) internal pure returns (uint256) {
@@ -39,14 +37,6 @@ library VaultSnapshot {
         }
 
         return data.lstCollateralAmountInEth * data.ltv / 10_000 - data.wethDebtAmount;
-    }
-
-    function ethToLst(Data memory data, uint256 amount) internal view returns (uint256) {
-        return data.lst.convertToShares(amount);
-    }
-
-    function lstToEth(Data memory data, uint256 amount) internal view returns (uint256) {
-        return data.lst.convertToAssets(amount);
     }
 
     function liquidationThresholdScaled18(Data memory data) internal pure returns (uint256) {
