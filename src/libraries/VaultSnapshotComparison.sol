@@ -51,6 +51,10 @@ library VaultSnapshotComparison {
         uint256 expectedCollateralAfter =
             data.accountBefore.lstCollateralAmount - data.accountBefore.proportionalCollateralInLst(sharesToRedeem);
 
+        if (expectedCollateralAfter == 0) {
+            return data.accountAfter.lstCollateralAmount == 0;
+        }
+
         // When repaying debt, aave will round in it's favor, potentially leaving the vault with 1 wei less collateral
         // than expected. Since the vault rounds in it's favor in VaultSnapshot.proportionalCollateralInLst, we can
         // safely subtract 1 wei from the expected collateral.
