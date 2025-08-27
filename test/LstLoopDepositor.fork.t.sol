@@ -71,7 +71,7 @@ contract LstLoopDepositorForkTest is Test {
         console.log("Assets increase:", finalTotalAssets - initialTotalAssets);
 
         VaultSnapshot.Data memory aaveAccount = vault.getVaultSnapshot();
-        console.log("health factor", aaveAccount.healthFactor);
+        console.log("health factor", aaveAccount.healthFactor());
         console.log("total collateral base", aaveAccount.lstCollateralAmount);
         console.log("available borrows base", aaveAccount.availableBorrowsInEth());
         console.log("total debt base", aaveAccount.wethDebtAmount);

@@ -428,17 +428,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         data.lstCollateralAmount = getAaveLstCollateralAmount();
         data.wethDebtAmount = getAaveWethDebtAmount();
 
-        uint256 liquidationThreshold;
-        (data.ltv, liquidationThreshold,) = AAVE_POOL.getEModeCategoryCollateralConfig(AAVE_E_MODE_CATEGORY_ID);
-        data.liquidationThresholdScaled18 = liquidationThreshold * 1e14;
+        (data.ltv, data.liquidationThreshold,) = AAVE_POOL.getEModeCategoryCollateralConfig(AAVE_E_MODE_CATEGORY_ID);
 
         data.vaultTotalSupply = totalSupply();
 
         data.lst = LST;
-
-        data.healthFactor = data.wethDebtAmount == 0
-            ? type(uint256).max
-            : data.lstCollateralAmount * data.liquidationThresholdScaled18 / data.wethDebtAmount;
     }
 
     function totalAssets() public view whenNotLocked returns (uint256) {

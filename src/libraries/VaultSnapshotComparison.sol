@@ -25,15 +25,15 @@ library VaultSnapshotComparison {
     }
 
     function checkHealthFactorAfterDeposit(Data memory data, uint256 targetHealthFactor) internal pure returns (bool) {
-        if (data.accountBefore.healthFactor < targetHealthFactor) {
+        if (data.accountBefore.healthFactor() < targetHealthFactor) {
             // The previous health factor is below the target, so we require that the new health factor cannot decrease
             // from it's current value
-            return data.accountAfter.healthFactor >= data.accountBefore.healthFactor
-                && data.accountAfter.healthFactor <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
+            return data.accountAfter.healthFactor() >= data.accountBefore.healthFactor()
+                && data.accountAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         } else {
             // The previous health factor is above the target, we require that the health factor is within a margin of the target
-            return data.accountAfter.healthFactor >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
-                && data.accountAfter.healthFactor <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
+            return data.accountAfter.healthFactor() >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
+                && data.accountAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         }
     }
 

@@ -194,7 +194,7 @@ contract LoopedSonicVaultBase is Test {
         uint256 availableBorrowInEth = aaveAccount.availableBorrowsInEth();
         uint256 debtInEth = aaveAccount.wethDebtAmount;
 
-        if (aaveAccount.healthFactor < targetHealthFactor || availableBorrowInEth == 0) {
+        if (aaveAccount.healthFactor() < targetHealthFactor || availableBorrowInEth == 0) {
             return 0;
         }
 
@@ -203,8 +203,8 @@ contract LoopedSonicVaultBase is Test {
         if (debtInEth > 0) {
             // We calculate the amount we'd need to borrow to reach the target health factor
             // considering we'd deposit that amount back into the pool as collateral
-            uint256 targetAmount = ((aaveAccount.healthFactor - targetHealthFactor) * debtInEth)
-                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18);
+            uint256 targetAmount = ((aaveAccount.healthFactor() - targetHealthFactor) * debtInEth)
+                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18());
 
             if (targetAmount < borrowAmount) {
                 // In this instance we'll exceed the target health factor if we borrow the max amount,

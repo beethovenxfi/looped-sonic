@@ -10,9 +10,8 @@ library VaultSnapshot {
     struct Data {
         uint256 lstCollateralAmount;
         uint256 wethDebtAmount;
-        uint256 liquidationThresholdScaled18;
+        uint256 liquidationThreshold;
         uint256 ltv;
-        uint256 healthFactor;
         uint256 vaultTotalSupply;
         ISonicStaking lst;
     }
@@ -47,5 +46,15 @@ library VaultSnapshot {
 
     function lstToEth(Data memory data, uint256 amount) internal view returns (uint256) {
         return data.lst.convertToAssets(amount);
+    }
+
+    function liquidationThresholdScaled18(Data memory data) internal pure returns (uint256) {
+        return data.liquidationThreshold * 1e14;
+    }
+
+    function healthFactor(Data memory data) internal pure returns (uint256) {
+        return data.wethDebtAmount == 0
+            ? type(uint256).max
+            : data.lstCollateralAmount * data.liquidationThresholdScaled18() / data.wethDebtAmount;
     }
 }
