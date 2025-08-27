@@ -136,22 +136,6 @@ contract LoopedSonicVaultBase is Test {
         shares = _depositToVault(user1, depositAmount, 0, "");
     }
 
-    function asUser(address user) internal {
-        vm.prank(user);
-    }
-
-    function asAdmin() internal {
-        vm.prank(admin);
-    }
-
-    function asOperator() internal {
-        vm.prank(operator);
-    }
-
-    function asDonator() internal {
-        vm.prank(donator);
-    }
-
     function _depositCallback(uint256 initialAssets, bytes calldata optionalCallbackData) external {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;

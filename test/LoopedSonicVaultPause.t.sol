@@ -16,11 +16,11 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testSetDepositsPaused() public {
         assertFalse(vault.depositsPaused(), "Deposits should not be paused initially");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(true);
         assertTrue(vault.depositsPaused(), "Deposits should be paused after setting");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(false);
         assertFalse(vault.depositsPaused(), "Deposits should be unpaused after setting");
     }
@@ -28,11 +28,11 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testSetWithdrawsPaused() public {
         assertFalse(vault.withdrawsPaused(), "Withdraws should not be paused initially");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setWithdrawsPaused(true);
         assertTrue(vault.withdrawsPaused(), "Withdraws should be paused after setting");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setWithdrawsPaused(false);
         assertFalse(vault.withdrawsPaused(), "Withdraws should be unpaused after setting");
     }
@@ -40,11 +40,11 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testSetDonationsPaused() public {
         assertFalse(vault.donationsPaused(), "Donations should not be paused initially");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setDonationsPaused(true);
         assertTrue(vault.donationsPaused(), "Donations should be paused after setting");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setDonationsPaused(false);
         assertFalse(vault.donationsPaused(), "Donations should be unpaused after setting");
     }
@@ -52,11 +52,11 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testSetUnwindsPaused() public {
         assertFalse(vault.unwindsPaused(), "Unwinds should not be paused initially");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setUnwindsPaused(true);
         assertTrue(vault.unwindsPaused(), "Unwinds should be paused after setting");
 
-        asAdmin();
+        vm.prank(admin);
         vault.setUnwindsPaused(false);
         assertFalse(vault.unwindsPaused(), "Unwinds should be unpaused after setting");
     }
@@ -71,7 +71,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertFalse(vault.donationsPaused(), "Donations should not be paused initially");
         assertFalse(vault.unwindsPaused(), "Unwinds should not be paused initially");
 
-        asOperator();
+        vm.prank(operator);
         vault.pause();
 
         assertTrue(vault.depositsPaused(), "Deposits should be paused after global pause");
@@ -86,70 +86,70 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
 
     function testOnlyAdminCanSetDepositsPaused() public {
         vm.expectRevert();
-        asUser(user1);
+        vm.prank(user1);
         vault.setDepositsPaused(true);
 
         vm.expectRevert();
-        asOperator();
+        vm.prank(operator);
         vault.setDepositsPaused(true);
 
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(true);
         assertTrue(vault.depositsPaused(), "Admin should be able to pause deposits");
     }
 
     function testOnlyAdminCanSetWithdrawsPaused() public {
         vm.expectRevert();
-        asUser(user1);
+        vm.prank(user1);
         vault.setWithdrawsPaused(true);
 
         vm.expectRevert();
-        asOperator();
+        vm.prank(operator);
         vault.setWithdrawsPaused(true);
 
-        asAdmin();
+        vm.prank(admin);
         vault.setWithdrawsPaused(true);
         assertTrue(vault.withdrawsPaused(), "Admin should be able to pause withdraws");
     }
 
     function testOnlyAdminCanSetDonationsPaused() public {
         vm.expectRevert();
-        asUser(user1);
+        vm.prank(user1);
         vault.setDonationsPaused(true);
 
         vm.expectRevert();
-        asOperator();
+        vm.prank(operator);
         vault.setDonationsPaused(true);
 
-        asAdmin();
+        vm.prank(admin);
         vault.setDonationsPaused(true);
         assertTrue(vault.donationsPaused(), "Admin should be able to pause donations");
     }
 
     function testOnlyAdminCanSetUnwindsPaused() public {
         vm.expectRevert();
-        asUser(user1);
+        vm.prank(user1);
         vault.setUnwindsPaused(true);
 
         vm.expectRevert();
-        asOperator();
+        vm.prank(operator);
         vault.setUnwindsPaused(true);
 
-        asAdmin();
+        vm.prank(admin);
         vault.setUnwindsPaused(true);
         assertTrue(vault.unwindsPaused(), "Admin should be able to pause unwinds");
     }
 
     function testOnlyOperatorCanCallGlobalPause() public {
         vm.expectRevert();
-        asUser(user1);
+        vm.prank(user1);
         vault.pause();
 
         vm.expectRevert();
-        asAdmin();
+        vm.prank(admin);
         vault.pause();
 
-        asOperator();
+        vm.prank(operator);
         vault.pause();
         assertTrue(vault.depositsPaused(), "Operator should be able to call global pause");
     }
@@ -159,7 +159,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     // =============================================================================
 
     function testDepositPauseBlocksDeposits() public {
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(true);
 
         bytes memory callbackData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether, "");
@@ -174,7 +174,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testWithdrawPauseBlocksWithdraws() public {
         _setupStandardDeposit();
 
-        asAdmin();
+        vm.prank(admin);
         vault.setWithdrawsPaused(true);
 
         bytes memory callbackData = abi.encodeWithSelector(this._withdrawCallback.selector, user1, 1, 0);
@@ -184,7 +184,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     }
 
     function testDonationPauseBlocksDonations() public {
-        asAdmin();
+        vm.prank(admin);
         vault.setDonationsPaused(true);
 
         vm.startPrank(donator);
@@ -198,7 +198,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testUnwindPauseBlocksUnwinds() public {
         _setupStandardDeposit();
 
-        asAdmin();
+        vm.prank(admin);
         vault.setUnwindsPaused(true);
 
         vm.startPrank(operator);
@@ -210,7 +210,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testGlobalPauseBlocksAllOperations() public {
         _setupStandardDeposit();
 
-        asOperator();
+        vm.prank(operator);
         vault.pause();
 
         bytes memory depositCallbackData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether, "");
@@ -251,29 +251,29 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testPauseStateDoesNotChangeWhenSettingSameValue() public {
         // Initially false, setting to false should not emit event
         vm.recordLogs();
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(false);
         assertEq(vm.getRecordedLogs().length, 0, "Should not emit event when setting same value");
 
         // Set to true
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(true);
         assertTrue(vault.depositsPaused(), "Should be paused");
 
         // Setting to true again should not emit event
         vm.recordLogs();
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(true);
         assertEq(vm.getRecordedLogs().length, 0, "Should not emit event when setting same value");
     }
 
     function testOperationsWorkAfterUnpause() public {
         // Pause all operations
-        asOperator();
+        vm.prank(operator);
         vault.pause();
 
         // Unpause deposits only
-        asAdmin();
+        vm.prank(admin);
         vault.setDepositsPaused(false);
 
         // Deposit should work
@@ -293,7 +293,7 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vault.withdraw(sharesToRedeem, callbackData);
 
         // Unpause withdraws
-        asAdmin();
+        vm.prank(admin);
         vault.setWithdrawsPaused(false);
 
         // Now withdraw should work
