@@ -219,6 +219,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     function initialize() external nonReentrant acquireLock {
         require(!isInitialized, AlreadyInitialized());
 
+        VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
+
+        require(snapshotBefore.lstCollateralAmount == 0, CollateralNotZero());
+        require(snapshotBefore.wethDebtAmount == 0, DebtNotZero());
+
         pullWeth(INIT_AMOUNT);
 
         stakeWeth(INIT_AMOUNT);
@@ -228,12 +233,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         AAVE_POOL.setUserEMode(AAVE_E_MODE_CATEGORY_ID);
         AAVE_POOL.setUserUseReserveAsCollateral(address(LST), true);
 
-        VaultSnapshot.Data memory aaveAccount = getVaultSnapshot();
-
-        require(aaveAccount.wethDebtAmount == 0, DebtNotZero());
+        VaultSnapshot.Data memory snapshotAfter = getVaultSnapshot();
 
         // Since the vault's nav was 0 before initialization, the amount of shares to mint is the nav, valued in ETH
-        uint256 sharesToMint = aaveAccount.netAssetValueInEth();
+        uint256 sharesToMint = snapshotAfter.netAssetValueInEth();
 
         // We burn the initial shares so that the total supply will never return to 0
         // We use address(1) since openzeppelin's ERC20 does not allow minting to the zero address

@@ -14,7 +14,7 @@ contract LoopedSonicVaultBase is Test {
     using VaultSnapshot for VaultSnapshot.Data;
     using Address for address;
 
-    ISonicStaking constant STAKED_SONIC = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
+    ISonicStaking constant LST = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
     IWETH constant WETH = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
     uint8 constant E_MODE_CATEGORY_ID = 1;
@@ -33,9 +33,9 @@ contract LoopedSonicVaultBase is Test {
     function setUp() public virtual {
         vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
 
-        vault = new LoopedSonicVault(address(WETH), address(STAKED_SONIC), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        vault = new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
         WETH.approve(address(vault), type(uint256).max);
-        STAKED_SONIC.approve(address(vault), type(uint256).max);
+        LST.approve(address(vault), type(uint256).max);
 
         _setupRoles();
         _setupInitialBalances();
@@ -68,7 +68,7 @@ contract LoopedSonicVaultBase is Test {
         WETH.deposit{value: INITIAL_BALANCE}();
     }
 
-    function _initializeVault() internal {
+    function _initializeVault() internal virtual {
         vm.startPrank(admin);
         WETH.approve(address(vault), type(uint256).max);
         vault.initialize();
@@ -198,5 +198,21 @@ contract LoopedSonicVaultBase is Test {
         }
 
         return borrowAmount;
+    }
+
+    function _getLstPrice() internal view returns (uint256) {
+        return vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle().getAssetPrice(address(LST));
+    }
+
+    function _getEthPrice() internal view returns (uint256) {
+        return vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle().getAssetPrice(address(WETH));
+    }
+
+    function _convertBaseAmountToLst(uint256 amount) internal view returns (uint256) {
+        return amount * 1e18 / _getLstPrice();
+    }
+
+    function _convertBaseAmountToEth(uint256 amount) internal view returns (uint256) {
+        return amount * 1e18 / _getEthPrice();
     }
 }
