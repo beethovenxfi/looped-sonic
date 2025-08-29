@@ -45,7 +45,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18; // 0.01
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18; // 0.01
     uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18; // 0.01
-    uint256 public constant MAX_UNWIND_SLIPPAGE = 0.02e18; // 2%
+    uint256 public constant MAX_UNWIND_SLIPPAGE_PERCENT = 0.02e18; // 2%
     uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18; // 0.01 ETH
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
@@ -66,7 +66,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     bool public isInitialized = false;
 
     uint256 public targetHealthFactor = 1.3e18;
-    uint256 public allowedUnwindSlippage = 0.007e18; // 0.7%
+    uint256 public allowedUnwindSlippagePercent = 0.007e18; // 0.7%
 
     bool public depositsPaused = false;
     bool public withdrawsPaused = false;
@@ -259,12 +259,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(!unwindsPaused, UnwindsPaused());
         require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, UnwindAmountBelowMin());
 
+        // Aave will revert any withdraw that would cause the health factor to drop below 1.0
         aaveWithdrawLst(lstAmountToWithdraw);
 
-        sendLst(msg.sender, lstAmountToWithdraw);
+        sendLst(contractToCall, lstAmountToWithdraw);
 
         // The redemption amount is the true value of the collateral, in ETH terms. It is the amount of WETH that
-        // we would receive from doing the time based redemption of the LST.
+        // we would receive from doing the time delayed redemption of the LST.
         uint256 redemptionAmount = _lstToEth(lstAmountToWithdraw);
 
         // Disallow msg.sender from calling into the vault during the scope of the callback
@@ -276,8 +277,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         allowedCaller = msg.sender;
 
-        require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippage) / 1e18, NotEnoughWETH());
+        require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWETH());
 
+        // To avoid special casing the unwind flow, we pull the WETH from the operator despite having sent the LST
+        // to the contractToCall. This is a slight misdirection, but it is limited to the operator, a granted role.
         pullWeth(wethAmount);
 
         aaveRepayWeth(wethAmount);
@@ -505,9 +508,12 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         targetHealthFactor = _targetHealthFactor;
     }
 
-    function setAllowedUnwindSlippage(uint256 _allowedUnwindSlippage) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_allowedUnwindSlippage <= MAX_UNWIND_SLIPPAGE, SlippageTooHigh());
-        allowedUnwindSlippage = _allowedUnwindSlippage;
+    function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, SlippageTooHigh());
+        allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
     }
 
     function pause() external onlyRole(OPERATOR_ROLE) {

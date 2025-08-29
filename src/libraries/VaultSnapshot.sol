@@ -36,7 +36,13 @@ library VaultSnapshot {
             return 0;
         }
 
-        return data.lstCollateralAmountInEth * data.ltv / 10_000 - data.wethDebtAmount;
+        uint256 maxDebt = data.lstCollateralAmountInEth * data.ltv / 10_000;
+
+        if (data.wethDebtAmount >= maxDebt) {
+            return 0;
+        }
+
+        return maxDebt - data.wethDebtAmount;
     }
 
     function liquidationThresholdScaled18(Data memory data) internal pure returns (uint256) {

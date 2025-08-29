@@ -368,9 +368,9 @@ interface ILoopedSonicVault {
     /**
      * @notice Sets the allowed slippage for unwind operations (owner only)
      * @dev Must be less than or equal to maximum unwind slippage (2%)
-     * @param _allowedUnwindSlippage The new allowed slippage (18 decimals)
+     * @param _allowedUnwindSlippagePercent The new allowed slippage (18 decimals)
      */
-    function setAllowedUnwindSlippage(uint256 _allowedUnwindSlippage) external;
+    function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent) external;
 
     /**
      * @notice Pauses all vault operations (operator role only)
