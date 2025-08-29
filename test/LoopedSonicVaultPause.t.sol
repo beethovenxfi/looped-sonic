@@ -37,18 +37,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         assertFalse(vault.withdrawsPaused(), "Withdraws should be unpaused after setting");
     }
 
-    function testSetDonationsPaused() public {
-        assertFalse(vault.donationsPaused(), "Donations should not be paused initially");
-
-        vm.prank(admin);
-        vault.setDonationsPaused(true);
-        assertTrue(vault.donationsPaused(), "Donations should be paused after setting");
-
-        vm.prank(admin);
-        vault.setDonationsPaused(false);
-        assertFalse(vault.donationsPaused(), "Donations should be unpaused after setting");
-    }
-
     function testSetUnwindsPaused() public {
         assertFalse(vault.unwindsPaused(), "Unwinds should not be paused initially");
 
@@ -68,7 +56,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
     function testGlobalPause() public {
         assertFalse(vault.depositsPaused(), "Deposits should not be paused initially");
         assertFalse(vault.withdrawsPaused(), "Withdraws should not be paused initially");
-        assertFalse(vault.donationsPaused(), "Donations should not be paused initially");
         assertFalse(vault.unwindsPaused(), "Unwinds should not be paused initially");
 
         vm.prank(operator);
@@ -76,7 +63,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
 
         assertTrue(vault.depositsPaused(), "Deposits should be paused after global pause");
         assertTrue(vault.withdrawsPaused(), "Withdraws should be paused after global pause");
-        assertTrue(vault.donationsPaused(), "Donations should be paused after global pause");
         assertTrue(vault.unwindsPaused(), "Unwinds should be paused after global pause");
     }
 
@@ -110,20 +96,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vm.prank(admin);
         vault.setWithdrawsPaused(true);
         assertTrue(vault.withdrawsPaused(), "Admin should be able to pause withdraws");
-    }
-
-    function testOnlyAdminCanSetDonationsPaused() public {
-        vm.expectRevert();
-        vm.prank(user1);
-        vault.setDonationsPaused(true);
-
-        vm.expectRevert();
-        vm.prank(operator);
-        vault.setDonationsPaused(true);
-
-        vm.prank(admin);
-        vault.setDonationsPaused(true);
-        assertTrue(vault.donationsPaused(), "Admin should be able to pause donations");
     }
 
     function testOnlyAdminCanSetUnwindsPaused() public {
@@ -183,18 +155,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vault.withdraw(1, callbackData);
     }
 
-    function testDonationPauseBlocksDonations() public {
-        vm.prank(admin);
-        vault.setDonationsPaused(true);
-
-        vm.startPrank(donator);
-        WETH.approve(address(vault), 1 ether);
-
-        vm.expectRevert(abi.encodeWithSignature("DonationsPaused()"));
-        vault.donate(1 ether, 0);
-        vm.stopPrank();
-    }
-
     function testUnwindPauseBlocksUnwinds() public {
         _setupStandardDeposit();
 
@@ -228,13 +188,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSignature("WithdrawsPaused()"));
         vault.withdraw(0.1 ether, withdrawCallbackData);
-        vm.stopPrank();
-
-        // Test donation is blocked
-        vm.startPrank(donator);
-        WETH.approve(address(vault), 1 ether);
-        vm.expectRevert(abi.encodeWithSignature("DonationsPaused()"));
-        vault.donate(1 ether, 0);
         vm.stopPrank();
 
         // Test unwind is blocked

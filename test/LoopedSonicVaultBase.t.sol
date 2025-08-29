@@ -22,7 +22,6 @@ contract LoopedSonicVaultBase is Test {
 
     address public admin = makeAddr("admin");
     address public operator = makeAddr("operator");
-    address public donator = makeAddr("donator");
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
@@ -45,7 +44,6 @@ contract LoopedSonicVaultBase is Test {
     function _setupRoles() internal {
         vm.startPrank(admin);
         vault.grantRole(vault.OPERATOR_ROLE(), operator);
-        vault.grantRole(vault.DONATOR_ROLE(), donator);
         vm.stopPrank();
     }
 
@@ -53,7 +51,6 @@ contract LoopedSonicVaultBase is Test {
         vm.deal(admin, INITIAL_BALANCE * 2);
         vm.deal(user1, INITIAL_BALANCE * 2);
         vm.deal(user2, INITIAL_BALANCE * 2);
-        vm.deal(donator, INITIAL_BALANCE * 2);
 
         vm.prank(admin);
         WETH.deposit{value: INITIAL_BALANCE}();
@@ -62,9 +59,6 @@ contract LoopedSonicVaultBase is Test {
         WETH.deposit{value: INITIAL_BALANCE}();
 
         vm.prank(user2);
-        WETH.deposit{value: INITIAL_BALANCE}();
-
-        vm.prank(donator);
         WETH.deposit{value: INITIAL_BALANCE}();
     }
 

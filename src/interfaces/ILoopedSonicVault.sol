@@ -49,17 +49,6 @@ interface ILoopedSonicVault {
     event Unwind(address indexed caller, uint256 lstAmountCollateralWithdrawn, uint256 wethAmountDebtRepaid);
 
     /**
-     * @notice Emitted when assets are donated to the vault
-     * @param caller The address that made the donation
-     * @param totalAmountDonatedEth The total donated amount in ETH terms
-     * @param wethAmountDonated The amount of WETH donated
-     * @param lstAmountDonated The amount of LST donated
-     */
-    event Donate(
-        address indexed caller, uint256 totalAmountDonatedEth, uint256 wethAmountDonated, uint256 lstAmountDonated
-    );
-
-    /**
      * @notice Emitted when WETH is staked to receive LST
      * @param caller The address that initiated the staking
      * @param wethAmountDeposited The amount of WETH staked
@@ -140,12 +129,6 @@ interface ILoopedSonicVault {
     event WithdrawsPausedChanged(bool paused);
 
     /**
-     * @notice Emitted when donation pause status changes
-     * @param paused The new pause status for donations
-     */
-    event DonationsPausedChanged(bool paused);
-
-    /**
      * @notice Emitted when unwind pause status changes
      * @param paused The new pause status for unwinds
      */
@@ -176,7 +159,6 @@ interface ILoopedSonicVault {
     error UnwindsPaused();
     error UnwindAmountBelowMin();
     error NotEnoughWETH();
-    error DonationsPaused();
     error ZeroAmount();
     error AmountLessThanMin();
     error InsufficientWETHSessionBalance();
@@ -186,8 +168,6 @@ interface ILoopedSonicVault {
     error SlippageTooHigh();
     error ZeroShares();
     error SharesExceedTotalSupply();
-    error DonationCooldownNotPassed();
-    error DonationAmountTooHigh();
 
     // ---------------------------------------------------------------------
     // Primary vault operations
@@ -223,14 +203,6 @@ interface ILoopedSonicVault {
      * @param data The calldata for the external liquidation contract
      */
     function unwind(uint256 lstAmountToWithdraw, address contractToCall, bytes calldata data) external;
-
-    /**
-     * @notice Donates WETH and/or LST to the vault to increase NAV (donator role only)
-     * @dev Accepts donations, stakes WETH to LST if provided, supplies LST to Aave
-     * @param wethAmount The amount of WETH to donate (will be staked to LST)
-     * @param lstAmount The amount of LST to donate directly
-     */
-    function donate(uint256 wethAmount, uint256 lstAmount) external;
 
     // ---------------------------------------------------------------------
     // Vault primitives (only callable during active lock)
@@ -374,7 +346,7 @@ interface ILoopedSonicVault {
 
     /**
      * @notice Pauses all vault operations (operator role only)
-     * @dev Sets all pause flags to true: deposits, withdrawals, donations, unwinds
+     * @dev Sets all pause flags to true: deposits, withdrawals, unwinds
      */
     function pause() external;
 
@@ -389,12 +361,6 @@ interface ILoopedSonicVault {
      * @param _paused True to pause withdrawals, false to unpause
      */
     function setWithdrawsPaused(bool _paused) external;
-
-    /**
-     * @notice Sets the pause status for donation operations (owner only)
-     * @param _paused True to pause donations, false to unpause
-     */
-    function setDonationsPaused(bool _paused) external;
 
     /**
      * @notice Sets the pause status for unwind operations (owner only)

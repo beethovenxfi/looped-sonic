@@ -56,7 +56,6 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
         );
         assertEq(snapshotAfter.wethDebtAmount, 0, "WETH debt should be 0");
         assertApproxEqAbs(nav, INIT_AMOUNT, 1, "Nav should be equal to init amount");
-        assertEq(vault.lastDonationTime(), block.timestamp, "Last donation time should be set");
     }
 
     function testInitializeRevertsIfAlreadyInitialized() public {

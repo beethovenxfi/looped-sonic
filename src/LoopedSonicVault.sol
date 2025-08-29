@@ -38,7 +38,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     using VaultSnapshot for VaultSnapshot.Data;
     using VaultSnapshotComparison for VaultSnapshotComparison.Data;
 
-    bytes32 public constant DONATOR_ROLE = keccak256("DONATOR_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     uint256 public constant AAVE_VARIABLE_INTEREST_RATE = 2;
@@ -50,8 +49,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
     uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
-    uint256 public constant DONATION_COOLDOWN = 1 hours;
-    uint256 public constant DONATION_MAX_PERCENT = 0.01e18; // 1%
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
@@ -70,10 +67,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
     bool public depositsPaused = false;
     bool public withdrawsPaused = false;
-    bool public donationsPaused = false;
     bool public unwindsPaused = false;
-
-    uint256 public lastDonationTime;
 
     // ---------------------------------------------------------------------
     // Flash‑accounting operation state (transient; zeroed every execution)
@@ -242,8 +236,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         // We use address(1) since openzeppelin's ERC20 does not allow minting to the zero address
         _mint(address(1), sharesToMint);
 
-        lastDonationTime = block.timestamp;
-
         isInitialized = true;
 
         emit Initialize(msg.sender, address(1), sharesToMint, sharesToMint);
@@ -287,43 +279,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         aaveRepayWeth(wethAmount);
 
         emit Unwind(msg.sender, lstAmountToWithdraw, wethAmount);
-    }
-
-    function donate(uint256 wethAmount, uint256 lstAmount)
-        external
-        nonReentrant
-        onlyRole(DONATOR_ROLE)
-        whenInitialized
-        acquireLock
-    {
-        require(!donationsPaused, DonationsPaused());
-        require(wethAmount > 0 || lstAmount > 0, ZeroAmount());
-
-        require(block.timestamp - lastDonationTime > DONATION_COOLDOWN, DonationCooldownNotPassed());
-
-        VaultSnapshot.Data memory data = getVaultSnapshot();
-
-        if (wethAmount > 0) {
-            pullWeth(wethAmount);
-            stakeWeth(wethAmount);
-        }
-
-        if (lstAmount > 0) {
-            pullLst(lstAmount);
-        }
-
-        uint256 totalAmountDonatedEth = _lstToEth(_lstSessionBalance);
-
-        require(
-            totalAmountDonatedEth <= data.netAssetValueInEth() * DONATION_MAX_PERCENT / 1e18, DonationAmountTooHigh()
-        );
-
-        // We only supply the LST to the Aave pool, we leave the task of looping to the next deposit
-        aaveSupplyLst(_lstSessionBalance);
-
-        lastDonationTime = block.timestamp;
-
-        emit Donate(msg.sender, totalAmountDonatedEth, wethAmount, lstAmount);
     }
 
     // ---------------------------------------------------------------------
@@ -520,7 +475,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     function pause() external onlyRole(OPERATOR_ROLE) {
         _setDepositsPaused(true);
         _setWithdrawsPaused(true);
-        _setDonationsPaused(true);
         _setUnwindsPaused(true);
     }
 
@@ -530,10 +484,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
     function setWithdrawsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setWithdrawsPaused(_paused);
-    }
-
-    function setDonationsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setDonationsPaused(_paused);
     }
 
     function setUnwindsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -559,13 +509,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         if (withdrawsPaused != _paused) {
             withdrawsPaused = _paused;
             emit WithdrawsPausedChanged(_paused);
-        }
-    }
-
-    function _setDonationsPaused(bool _paused) internal {
-        if (donationsPaused != _paused) {
-            donationsPaused = _paused;
-            emit DonationsPausedChanged(_paused);
         }
     }
 
