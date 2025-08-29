@@ -280,7 +280,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWETH());
 
         // To avoid special casing the unwind flow, we pull the WETH from the operator despite having sent the LST
-        // to the contractToCall. This is a slight misdirection, but it is limited to the operator, a granted role.
+        // to the contractToCall. This is a misdirection, but it is limited to the operator, a granted role.
+        // The contractToCall is expected to send the WETH to the operator.
         pullWeth(wethAmount);
 
         aaveRepayWeth(wethAmount);
