@@ -9,6 +9,8 @@ import {IAavePool} from "../src/interfaces/IAavePool.sol";
 import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract LoopedSonicVaultBase is Test {
     using VaultSnapshot for VaultSnapshot.Data;
@@ -184,4 +186,34 @@ contract LoopedSonicVaultBase is Test {
     function _convertBaseAmountToEth(uint256 amount) internal view returns (uint256) {
         return amount * 1e18 / _getEthPrice();
     }
+
+    function _attemptReentrancy() public {
+        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vault.deposit(user1, abi.encodeWithSelector(this.emptyCallback.selector));
+
+        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vault.withdraw(1e18, abi.encodeWithSelector(this.emptyCallback.selector));
+
+        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vault.unwind(1e18, address(this), abi.encodeWithSelector(this.emptyCallback.selector));
+    }
+
+    function _attemptReadOnlyReentrancy() public {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.totalAssets();
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.convertToAssets(1e18);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.convertToShares(1e18);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.getRate();
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.getCollateralAndDebtForShares(1e18);
+    }
+
+    function emptyCallback() external {}
 }

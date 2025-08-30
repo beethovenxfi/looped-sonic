@@ -251,7 +251,8 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshot.lstCollateralAmount / 10;
 
-        bytes memory liquidationData = abi.encodeWithSelector(this._attemptReentrancy.selector, lstAmountToWithdraw);
+        bytes memory liquidationData =
+            abi.encodeWithSelector(this._unwindAttemptReentrancy.selector, lstAmountToWithdraw);
 
         vm.prank(operator);
         vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
@@ -264,7 +265,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         uint256 lstAmountToWithdraw = snapshot.lstCollateralAmount / 10;
 
         bytes memory liquidationData =
-            abi.encodeWithSelector(this._attemptReadOnlyReentrancy.selector, lstAmountToWithdraw);
+            abi.encodeWithSelector(this._unwindWithReadOnlyReentrancy.selector, lstAmountToWithdraw);
 
         vm.prank(operator);
         vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
@@ -298,14 +299,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         return wethAmount;
     }
 
-    function _attemptReentrancy(uint256 lstAmount) external returns (uint256 wethAmount) {
+    function _unwindAttemptReentrancy(uint256 lstAmount) external returns (uint256 wethAmount) {
         wethAmount = LST.convertToAssets(lstAmount);
 
-        // burn the LST
-        //LST.transfer(address(1), lstAmount);
-
-        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
-        vault.unwind(1e18, address(this), "");
+        _attemptReentrancy();
 
         // transfer the WETH to the operator
         WETH.transfer(address(operator), wethAmount);
@@ -313,23 +310,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         return wethAmount;
     }
 
-    function _attemptReadOnlyReentrancy(uint256 lstAmount) external returns (uint256 wethAmount) {
+    function _unwindWithReadOnlyReentrancy(uint256 lstAmount) external returns (uint256 wethAmount) {
         wethAmount = LST.convertToAssets(lstAmount);
 
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.totalAssets();
-
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.convertToAssets(1e18);
-
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.convertToShares(1e18);
-
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.getRate();
-
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.getCollateralAndDebtForShares(1e18);
+        _attemptReadOnlyReentrancy();
 
         // transfer the WETH to the operator
         WETH.transfer(address(operator), wethAmount);

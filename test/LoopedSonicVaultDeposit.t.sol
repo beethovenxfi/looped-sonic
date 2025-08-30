@@ -149,6 +149,29 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         );
     }
 
+    function testDepositRevertsWithReadOnlyReentrancy() public {
+        uint256 depositAmount = 1 ether;
+
+        WETH.transferFrom(user1, address(this), depositAmount);
+
+        bytes memory readonlyReentrancyData = abi.encodeWithSelector(this._attemptReadOnlyReentrancy.selector);
+        bytes memory depositData =
+            abi.encodeWithSelector(this._depositCallback.selector, depositAmount, readonlyReentrancyData);
+
+        vault.deposit(user1, depositData);
+    }
+
+    function testDepositRevertsWithReentrancy() public {
+        uint256 depositAmount = 1 ether;
+
+        WETH.transferFrom(user1, address(this), depositAmount);
+
+        bytes memory reentrancyData = abi.encodeWithSelector(this._attemptReentrancy.selector);
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, reentrancyData);
+
+        vault.deposit(user1, depositData);
+    }
+
     function _invalidDeposit(uint256 amount) external {
         // We do a single loop, which will leave the health factor higher than the target
         // causing a revert
