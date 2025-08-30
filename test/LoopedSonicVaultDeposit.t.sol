@@ -91,15 +91,36 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         vault.deposit(address(0), depositData);
     }
 
-    function testDepositRevertsWithInvalidHealthFactor() public {
+    function testDepositRevertsWithHealthFactorAboveTarget() public {
         uint256 depositAmount = 1 ether;
 
         WETH.transferFrom(user1, address(this), depositAmount);
 
-        bytes memory depositData = abi.encodeWithSelector(this._invalidDeposit.selector, depositAmount, "");
+        bytes memory depositData = abi.encodeWithSelector(this._invalidDeposit.selector, depositAmount);
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.HealthFactorNotInRange.selector));
         vault.deposit(user1, depositData);
+    }
+
+    function testDepositRevertsWithHealthFactorBelowTarget() public {
+        uint256 depositAmount = 1 ether;
+
+        WETH.transferFrom(user1, address(this), depositAmount);
+
+        bytes memory belowTargetHealthFactorData =
+            abi.encodeWithSelector(this._belowTargetHealthFactorCallback.selector);
+        bytes memory depositData =
+            abi.encodeWithSelector(this._depositCallback.selector, depositAmount, belowTargetHealthFactorData);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.HealthFactorNotInRange.selector));
+        vault.deposit(user1, depositData);
+    }
+
+    function _belowTargetHealthFactorCallback() external {
+        uint256 lstAmount = 0.1e18;
+
+        vault.aaveWithdrawLst(lstAmount);
+        vault.sendLst(address(this), lstAmount);
     }
 
     function testDepositRevertsWithNavIncreaseBelowMin() public {
