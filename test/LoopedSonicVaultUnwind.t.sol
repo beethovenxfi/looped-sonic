@@ -9,6 +9,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
@@ -244,6 +245,31 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         vault.unwind(lstAmountToWithdraw, address(this), invalidData);
     }
 
+    function testUnwindRevertsOnReentrancy() public {
+        _setupStandardDeposit();
+
+        VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
+        uint256 lstAmountToWithdraw = snapshot.lstCollateralAmount / 10;
+
+        bytes memory liquidationData = abi.encodeWithSelector(this._attemptReentrancy.selector, lstAmountToWithdraw);
+
+        vm.prank(operator);
+        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+    }
+
+    function testUnwindRevertsOnReadOnlyReentrancy() public {
+        _setupStandardDeposit();
+
+        VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
+        uint256 lstAmountToWithdraw = snapshot.lstCollateralAmount / 10;
+
+        bytes memory liquidationData =
+            abi.encodeWithSelector(this._attemptReadOnlyReentrancy.selector, lstAmountToWithdraw);
+
+        vm.prank(operator);
+        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+    }
+
     function _liquidateLstAtRedemptionRate(uint256 lstAmount) external returns (uint256 wethAmount) {
         // We simulate liqudation at the redemption rate
         wethAmount = LST.convertToAssets(lstAmount);
@@ -265,6 +291,45 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         // burn the LST
         LST.transfer(address(1), lstAmount);
+
+        // transfer the WETH to the operator
+        WETH.transfer(address(operator), wethAmount);
+
+        return wethAmount;
+    }
+
+    function _attemptReentrancy(uint256 lstAmount) external returns (uint256 wethAmount) {
+        wethAmount = LST.convertToAssets(lstAmount);
+
+        // burn the LST
+        //LST.transfer(address(1), lstAmount);
+
+        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vault.unwind(1e18, address(this), "");
+
+        // transfer the WETH to the operator
+        WETH.transfer(address(operator), wethAmount);
+
+        return wethAmount;
+    }
+
+    function _attemptReadOnlyReentrancy(uint256 lstAmount) external returns (uint256 wethAmount) {
+        wethAmount = LST.convertToAssets(lstAmount);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.totalAssets();
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.convertToAssets(1e18);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.convertToShares(1e18);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.getRate();
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
+        vault.getCollateralAndDebtForShares(1e18);
 
         // transfer the WETH to the operator
         WETH.transfer(address(operator), wethAmount);
