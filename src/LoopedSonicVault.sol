@@ -150,6 +150,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
      */
     function deposit(address receiver, bytes calldata callbackData) external nonReentrant whenInitialized acquireLock {
         require(!depositsPaused, DepositsPaused());
+        require(receiver != address(0), ZeroAddress());
 
         VaultSnapshotComparison.Data memory data;
 
