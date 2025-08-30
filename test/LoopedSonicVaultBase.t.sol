@@ -134,6 +134,8 @@ contract LoopedSonicVaultBase is Test {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
         uint256 totalDebt = 0;
+        VaultSnapshot.Data memory snapshot;
+        uint256 targetHealthFactor = vault.targetHealthFactor();
 
         vault.pullWeth(initialAssets);
 
@@ -149,7 +151,8 @@ contract LoopedSonicVaultBase is Test {
 
             totalCollateral += lstAmount;
 
-            uint256 borrowAmount = _getAmountOfWethToBorrow();
+            snapshot = vault.getVaultSnapshot();
+            uint256 borrowAmount = snapshot.amountToBorrowInEth(targetHealthFactor);
 
             if (borrowAmount < vault.MIN_LST_DEPOSIT()) {
                 break;
@@ -164,34 +167,6 @@ contract LoopedSonicVaultBase is Test {
         if (optionalCallbackData.length > 0) {
             address(this).functionCall(optionalCallbackData);
         }
-    }
-
-    function _getAmountOfWethToBorrow() internal view returns (uint256) {
-        VaultSnapshot.Data memory aaveAccount = vault.getVaultSnapshot();
-        uint256 targetHealthFactor = vault.targetHealthFactor();
-        uint256 availableBorrowInEth = aaveAccount.availableBorrowsInEth();
-        uint256 debtInEth = aaveAccount.wethDebtAmount;
-
-        if (aaveAccount.healthFactor() < targetHealthFactor || availableBorrowInEth == 0) {
-            return 0;
-        }
-
-        uint256 borrowAmount = (availableBorrowInEth * 0.95e18) / 1e18;
-
-        if (debtInEth > 0) {
-            // We calculate the amount we'd need to borrow to reach the target health factor
-            // considering we'd deposit that amount back into the pool as collateral
-            uint256 targetAmount = ((aaveAccount.healthFactor() - targetHealthFactor) * debtInEth)
-                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18());
-
-            if (targetAmount < borrowAmount) {
-                // In this instance we'll exceed the target health factor if we borrow the max amount,
-                // so we return the target amount
-                return targetAmount;
-            }
-        }
-
-        return borrowAmount;
     }
 
     function _getLstPrice() internal view returns (uint256) {

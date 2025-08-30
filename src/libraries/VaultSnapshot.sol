@@ -54,4 +54,29 @@ library VaultSnapshot {
             ? type(uint256).max
             : data.lstCollateralAmountInEth * data.liquidationThresholdScaled18() / data.wethDebtAmount;
     }
+
+    function amountToBorrowInEth(Data memory data, uint256 targetHealthFactor) internal pure returns (uint256) {
+        // Aave's base currency is using 8 decimals, we account for that here
+        uint256 maxBorrowAmount = data.availableBorrowsInEth() * 0.9999999e18 / 1e18;
+        uint256 currentHealthFactor = data.healthFactor();
+
+        if (currentHealthFactor < targetHealthFactor || maxBorrowAmount == 0) {
+            return 0;
+        }
+
+        if (data.wethDebtAmount > 0) {
+            // We calculate the amount we'd need to borrow to reach the target health factor
+            // considering we'd deposit that amount back into the pool as collateral
+            uint256 targetAmount = ((currentHealthFactor - targetHealthFactor) * data.wethDebtAmount)
+                / (targetHealthFactor - data.liquidationThresholdScaled18());
+
+            if (targetAmount < maxBorrowAmount) {
+                // In this instance we'll exceed the target health factor if we borrow the max amount,
+                // so we return the target amount
+                return targetAmount;
+            }
+        }
+
+        return maxBorrowAmount;
+    }
 }
