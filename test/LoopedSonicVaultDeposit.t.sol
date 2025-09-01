@@ -58,6 +58,13 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
             NAV_DECREASE_TOLERANCE,
             "Total supply should increase by expected amount"
         );
+
+        assertApproxEqAbs(
+            sharesAfter,
+            sharesBefore + expectedShares,
+            NAV_DECREASE_TOLERANCE,
+            "User's shares should increase by expected amount"
+        );
     }
 
     function testDepositRevertsWhenPaused() public {

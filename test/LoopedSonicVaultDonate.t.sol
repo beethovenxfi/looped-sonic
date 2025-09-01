@@ -95,19 +95,27 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
-    /* function testDonateDuringDeposit() public {
+    function testDonateDuringDeposit() public {
         _setupStandardDeposit();
 
+        uint256 depositAmount = 1 ether;
         uint256 donateAmount = 1 ether;
+
+        vm.prank(user1);
+        WETH.approve(address(this), depositAmount);
+
+        WETH.transferFrom(user1, address(this), depositAmount);
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
 
-        bytes memory callbackData =
+        bytes memory donateCallbackData =
             abi.encodeWithSelector(this._donateAaveLstATokensToVault.selector, user1, donateAmount);
+        bytes memory depositCallbackData =
+            abi.encodeWithSelector(this._depositCallback.selector, depositAmount, donateCallbackData);
 
         // This will call the donation at the end of the deposit callback. The donation should increase
         // the health factor outside of the target range bounds and cause the deposit to revert.
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.HealthFactorNotInRange.selector));
-        _depositToVault(user1, 1 ether, 0, callbackData);
-    } */
+        vault.deposit(user1, depositCallbackData);
+    }
 }
