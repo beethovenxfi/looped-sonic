@@ -3,7 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test, console} from "forge-std/Test.sol";
 import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
-import {BalancerLoopedSonicRouter} from "../src/BalancerLoopedSonicRouter.sol";
+import {BalancerLoopedSonicRouter} from "./mocks/BalancerLoopedSonicRouter.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IBalancerVault} from "../src/interfaces/IBalancerVault.sol";

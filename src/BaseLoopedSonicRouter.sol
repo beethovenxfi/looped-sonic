@@ -43,6 +43,8 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
         uint256 totalDebt = 0;
+        VaultSnapshot.Data memory snapshot;
+        uint256 targetHealthFactor = VAULT.targetHealthFactor();
 
         VAULT.pullWeth(initialAssets);
 
@@ -58,7 +60,8 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
             totalCollateral += lstAmount;
 
-            uint256 borrowAmount = _getAmountOfWethToBorrow();
+            snapshot = VAULT.getVaultSnapshot();
+            uint256 borrowAmount = snapshot.amountToBorrowInEth(targetHealthFactor);
 
             if (borrowAmount < VAULT.MIN_LST_DEPOSIT()) {
                 break;
@@ -69,8 +72,6 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
             totalDebt += borrowAmount;
             currentAssets = borrowAmount;
         }
-
-        //emit PositionLooped(MAX_LOOP_ITERATIONS, totalCollateral, totalDebt);
     }
 
     struct WithdrawParams {
@@ -117,7 +118,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
             abi.encodeCall(BaseLoopedSonicRouter.withdrawCallback, (withdrawParams, flashLoanFee))
         );
 
-        // Allow aave to pull the funds to pay back the flashloan
+        // Allow aave to pull the funds to pay back the flashloan + fee
         IERC20(asset).approve(address(VAULT.AAVE_POOL()), flashLoanAmount + flashLoanFee);
 
         return true;
@@ -133,53 +134,12 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         VAULT.sendLst(address(this), params.collateralInLst);
 
         uint256 redemptionAmount = VAULT.LST().convertToAssets(params.collateralInLst);
-        console.log("collateralInLST", params.collateralInLst);
 
         uint256 wethOut = convertLstToWeth(params.collateralInLst, params.convertLstToWethData);
 
-        console.log("WETH out", wethOut);
-        console.log("debtInETH", params.debtInEth);
-        console.log("diff", wethOut - params.debtInEth);
-
         uint256 amountToRecipient = wethOut - params.debtInEth - flashLoanFee;
 
-        console.log("amountToRecipient", amountToRecipient);
-        console.log("redemptionAmount", redemptionAmount - params.debtInEth - flashLoanFee);
-
-        // amountToRecipient 490,693_825_747_729_828_432_025
-        // redemptionAmount  499,437_528_179_624_931_668_457
-
-        // 157,743_246_614_722_991_068_698
-
         IERC20(address(VAULT.WETH())).safeTransfer(params.recipient, amountToRecipient);
-    }
-
-    function _getAmountOfWethToBorrow() internal view returns (uint256) {
-        VaultSnapshot.Data memory aaveAccount = VAULT.getVaultSnapshot();
-        uint256 targetHealthFactor = VAULT.targetHealthFactor();
-        uint256 availableBorrowInEth = aaveAccount.availableBorrowsInEth();
-        uint256 debtInEth = aaveAccount.wethDebtAmount;
-
-        if (aaveAccount.healthFactor() < targetHealthFactor || availableBorrowInEth == 0) {
-            return 0;
-        }
-
-        uint256 borrowAmount = (availableBorrowInEth * 0.95e18) / 1e18;
-
-        if (debtInEth > 0) {
-            // We calculate the amount we'd need to borrow to reach the target health factor
-            // considering we'd deposit that amount back into the pool as collateral
-            uint256 targetAmount = ((aaveAccount.healthFactor() - targetHealthFactor) * debtInEth)
-                / (targetHealthFactor - aaveAccount.liquidationThresholdScaled18());
-
-            if (targetAmount < borrowAmount) {
-                // In this instance we'll exceed the target health factor if we borrow the max amount,
-                // so we return the target amount
-                return targetAmount;
-            }
-        }
-
-        return borrowAmount;
     }
 
     receive() external payable {}
