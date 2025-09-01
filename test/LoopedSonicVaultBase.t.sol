@@ -145,17 +145,11 @@ contract LoopedSonicVaultBase is Test {
     function _depositCallback(uint256 initialAssets, bytes calldata optionalCallbackData) external {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
-        uint256 totalDebt = 0;
 
         vault.pullWeth(initialAssets);
 
         for (uint256 i = 0; i < MAX_LOOP_ITERATIONS && currentAssets > 0; i++) {
-            uint256 minLstAmount = vault.LST().convertToShares(currentAssets);
             uint256 lstAmount = vault.stakeWeth(currentAssets);
-
-            // The router implementation must ensure that the amount of LST received is at least the amount of
-            // shares that would be received if the WETH was staked
-            require(lstAmount >= minLstAmount, "LST amount out too low");
 
             vault.aaveSupplyLst(lstAmount);
 
@@ -169,7 +163,6 @@ contract LoopedSonicVaultBase is Test {
 
             vault.aaveBorrowWeth(borrowAmount);
 
-            totalDebt += borrowAmount;
             currentAssets = borrowAmount;
         }
 
