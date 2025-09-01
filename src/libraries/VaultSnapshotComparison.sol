@@ -11,54 +11,54 @@ library VaultSnapshotComparison {
     uint256 public constant HEALTH_FACTOR_MARGIN = 0.000001e18;
 
     struct Data {
-        VaultSnapshot.Data accountBefore;
-        VaultSnapshot.Data accountAfter;
+        VaultSnapshot.Data dataBefore;
+        VaultSnapshot.Data dataAfter;
     }
 
     function navIncreaseEth(Data memory data) internal view returns (uint256) {
-        return data.accountAfter.netAssetValueInEth() - data.accountBefore.netAssetValueInEth();
+        return data.dataAfter.netAssetValueInEth() - data.dataBefore.netAssetValueInEth();
     }
 
     function navDecreaseEth(Data memory data) internal view returns (uint256) {
-        return data.accountBefore.netAssetValueInEth() - data.accountAfter.netAssetValueInEth();
+        return data.dataBefore.netAssetValueInEth() - data.dataAfter.netAssetValueInEth();
     }
 
     function checkHealthFactorAfterDeposit(Data memory data, uint256 targetHealthFactor) internal pure returns (bool) {
-        if (data.accountBefore.healthFactor() < targetHealthFactor) {
+        if (data.dataBefore.healthFactor() < targetHealthFactor) {
             // The previous health factor is below the target, so we require that the new health factor cannot decrease
             // from it's current value
-            return data.accountAfter.healthFactor() >= data.accountBefore.healthFactor()
-                && data.accountAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
+            return data.dataAfter.healthFactor() >= data.dataBefore.healthFactor()
+                && data.dataAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         } else {
             // The previous health factor is above the target, we require that the health factor is within a margin of the target
-            return data.accountAfter.healthFactor() >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
-                && data.accountAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
+            return data.dataAfter.healthFactor() >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
+                && data.dataAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         }
     }
 
     function checkDebtAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
         uint256 expectedDebtAfter =
-            data.accountBefore.wethDebtAmount - data.accountBefore.proportionalDebtInEth(sharesToRedeem);
+            data.dataBefore.wethDebtAmount - data.dataBefore.proportionalDebtInEth(sharesToRedeem);
 
-        return expectedDebtAfter == data.accountAfter.wethDebtAmount
+        return expectedDebtAfter == data.dataAfter.wethDebtAmount
         // When repaying debt, aave will round in it's favor, potentially leaving the vault with 1 wei more debt
         // than expected. Since the vault rounds in it's favor in VaultSnapshot.proportionalDebtInEth, we can
         // safely add 1 wei to the expected debt.
-        || expectedDebtAfter + 1 == data.accountAfter.wethDebtAmount;
+        || expectedDebtAfter + 1 == data.dataAfter.wethDebtAmount;
     }
 
     function checkCollateralAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
         uint256 expectedCollateralAfter =
-            data.accountBefore.lstCollateralAmount - data.accountBefore.proportionalCollateralInLst(sharesToRedeem);
+            data.dataBefore.lstCollateralAmount - data.dataBefore.proportionalCollateralInLst(sharesToRedeem);
 
         if (expectedCollateralAfter == 0) {
-            return data.accountAfter.lstCollateralAmount == 0;
+            return data.dataAfter.lstCollateralAmount == 0;
         }
 
         // When repaying debt, aave will round in it's favor, potentially leaving the vault with 1 wei less collateral
         // than expected. Since the vault rounds in it's favor in VaultSnapshot.proportionalCollateralInLst, we can
         // safely subtract 1 wei from the expected collateral.
-        return expectedCollateralAfter == data.accountAfter.lstCollateralAmount
-            || expectedCollateralAfter - 1 == data.accountAfter.lstCollateralAmount;
+        return expectedCollateralAfter == data.dataAfter.lstCollateralAmount
+            || expectedCollateralAfter - 1 == data.dataAfter.lstCollateralAmount;
     }
 }

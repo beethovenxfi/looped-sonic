@@ -30,7 +30,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         uint256 sharesBefore = vault.balanceOf(user1);
         VaultSnapshotComparison.Data memory data;
-        data.accountBefore = vault.getVaultSnapshot();
+        data.dataBefore = vault.getVaultSnapshot();
         uint256 invariantBefore = vault.totalAssets() * 1e18 / vault.totalSupply();
         uint256 expectedShares = vault.convertToShares(depositAmount);
 
@@ -43,7 +43,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         vault.deposit(user1, depositData);
 
-        data.accountAfter = vault.getVaultSnapshot();
+        data.dataAfter = vault.getVaultSnapshot();
         uint256 sharesAfter = vault.balanceOf(user1);
         uint256 invariantAfter = vault.totalAssets() * 1e18 / vault.totalSupply();
 
@@ -54,7 +54,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         assertEq(invariantAfter, invariantBefore, "Invariant should not change");
         assertApproxEqAbs(
             vault.totalSupply(),
-            data.accountBefore.vaultTotalSupply + expectedShares,
+            data.dataBefore.vaultTotalSupply + expectedShares,
             NAV_DECREASE_TOLERANCE,
             "Total supply should increase by expected amount"
         );

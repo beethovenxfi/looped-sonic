@@ -39,19 +39,19 @@ contract VaultSnapshotComparisonTest is Test {
             vaultTotalSupply: BASE_TOTAL_SUPPLY
         });
 
-        comparison = VaultSnapshotComparison.Data({accountBefore: beforeSnapshot, accountAfter: afterSnapshot});
+        comparison = VaultSnapshotComparison.Data({dataBefore: beforeSnapshot, dataAfter: afterSnapshot});
     }
 
     function testNavIncreaseEth() public {
-        comparison.accountAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH + 20e18;
+        comparison.dataAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH + 20e18;
 
         uint256 increase = comparison.navIncreaseEth();
         assertEq(increase, 20e18);
     }
 
     function testNavIncreaseEthWithDebtIncrease() public {
-        comparison.accountAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH + 30e18;
-        comparison.accountAfter.wethDebtAmount = BASE_DEBT_AMOUNT + 10e18;
+        comparison.dataAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH + 30e18;
+        comparison.dataAfter.wethDebtAmount = BASE_DEBT_AMOUNT + 10e18;
 
         uint256 expectedIncrease = 30e18 - 10e18;
         uint256 increase = comparison.navIncreaseEth();
@@ -59,15 +59,15 @@ contract VaultSnapshotComparisonTest is Test {
     }
 
     function testNavDecreaseEth() public {
-        comparison.accountAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH - 15e18;
+        comparison.dataAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH - 15e18;
 
         uint256 decrease = comparison.navDecreaseEth();
         assertEq(decrease, 15e18);
     }
 
     function testNavDecreaseEthWithDebtDecrease() public {
-        comparison.accountAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH - 20e18;
-        comparison.accountAfter.wethDebtAmount = BASE_DEBT_AMOUNT - 5e18;
+        comparison.dataAfter.lstCollateralAmountInEth = BASE_COLLATERAL_IN_ETH - 20e18;
+        comparison.dataAfter.wethDebtAmount = BASE_DEBT_AMOUNT - 5e18;
 
         uint256 expectedDecrease = 20e18 - 5e18;
         uint256 decrease = comparison.navDecreaseEth();
@@ -76,10 +76,10 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckHealthFactorAfterDepositWithLowHealthFactor() public {
         uint256 lowHealthFactor = 1.5e18;
-        comparison.accountBefore.wethDebtAmount = comparison.accountBefore.lstCollateralAmountInEth
-            * comparison.accountBefore.liquidationThresholdScaled18() / lowHealthFactor;
+        comparison.dataBefore.wethDebtAmount = comparison.dataBefore.lstCollateralAmountInEth
+            * comparison.dataBefore.liquidationThresholdScaled18() / lowHealthFactor;
 
-        comparison.accountAfter.wethDebtAmount = comparison.accountBefore.wethDebtAmount - 5e18;
+        comparison.dataAfter.wethDebtAmount = comparison.dataBefore.wethDebtAmount - 5e18;
 
         bool result = comparison.checkHealthFactorAfterDeposit(TARGET_HEALTH_FACTOR);
         assertTrue(result, "Health factor check should pass when HF increases from low value");
@@ -87,10 +87,10 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckHealthFactorAfterDepositWithLowHealthFactorDecrease() public {
         uint256 lowHealthFactor = 1.5e18;
-        comparison.accountBefore.wethDebtAmount = comparison.accountBefore.lstCollateralAmountInEth
-            * comparison.accountBefore.liquidationThresholdScaled18() / lowHealthFactor;
+        comparison.dataBefore.wethDebtAmount = comparison.dataBefore.lstCollateralAmountInEth
+            * comparison.dataBefore.liquidationThresholdScaled18() / lowHealthFactor;
 
-        comparison.accountAfter.wethDebtAmount = comparison.accountBefore.wethDebtAmount + 5e18;
+        comparison.dataAfter.wethDebtAmount = comparison.dataBefore.wethDebtAmount + 5e18;
 
         bool result = comparison.checkHealthFactorAfterDeposit(TARGET_HEALTH_FACTOR);
         assertFalse(result, "Health factor check should fail when HF decreases from low value");
@@ -98,12 +98,12 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckHealthFactorAfterDepositWithHighHealthFactorWithinMargin() public {
         uint256 highHealthFactor = 3e18;
-        comparison.accountBefore.wethDebtAmount = comparison.accountBefore.lstCollateralAmountInEth
-            * comparison.accountBefore.liquidationThresholdScaled18() / highHealthFactor;
+        comparison.dataBefore.wethDebtAmount = comparison.dataBefore.lstCollateralAmountInEth
+            * comparison.dataBefore.liquidationThresholdScaled18() / highHealthFactor;
 
-        uint256 targetDebt = comparison.accountAfter.lstCollateralAmountInEth
-            * comparison.accountAfter.liquidationThresholdScaled18() / TARGET_HEALTH_FACTOR;
-        comparison.accountAfter.wethDebtAmount = targetDebt;
+        uint256 targetDebt = comparison.dataAfter.lstCollateralAmountInEth
+            * comparison.dataAfter.liquidationThresholdScaled18() / TARGET_HEALTH_FACTOR;
+        comparison.dataAfter.wethDebtAmount = targetDebt;
 
         bool result = comparison.checkHealthFactorAfterDeposit(TARGET_HEALTH_FACTOR);
         assertTrue(result, "Health factor check should pass when within margin of target");
@@ -111,13 +111,13 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckHealthFactorAfterDepositWithHighHealthFactorOutsideMargin() public {
         uint256 highHealthFactor = 3e18;
-        comparison.accountBefore.wethDebtAmount = comparison.accountBefore.lstCollateralAmountInEth
-            * comparison.accountBefore.liquidationThresholdScaled18() / highHealthFactor;
+        comparison.dataBefore.wethDebtAmount = comparison.dataBefore.lstCollateralAmountInEth
+            * comparison.dataBefore.liquidationThresholdScaled18() / highHealthFactor;
 
         uint256 marginFactor = 1e18 + VaultSnapshotComparison.HEALTH_FACTOR_MARGIN + 1;
-        uint256 targetDebt = comparison.accountAfter.lstCollateralAmountInEth
-            * comparison.accountAfter.liquidationThresholdScaled18() / (TARGET_HEALTH_FACTOR * marginFactor / 1e18);
-        comparison.accountAfter.wethDebtAmount = targetDebt;
+        uint256 targetDebt = comparison.dataAfter.lstCollateralAmountInEth
+            * comparison.dataAfter.liquidationThresholdScaled18() / (TARGET_HEALTH_FACTOR * marginFactor / 1e18);
+        comparison.dataAfter.wethDebtAmount = targetDebt;
 
         bool result = comparison.checkHealthFactorAfterDeposit(TARGET_HEALTH_FACTOR);
         assertFalse(result, "Health factor check should fail when outside margin of target");
@@ -125,8 +125,8 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckDebtAfterWithdrawExactMatch() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedDebtReduction = comparison.accountBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.accountAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction;
+        uint256 expectedDebtReduction = comparison.dataBefore.proportionalDebtInEth(sharesToRedeem);
+        comparison.dataAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction;
 
         bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
         assertTrue(result, "Debt check should pass with exact expected debt amount");
@@ -134,8 +134,8 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckDebtAfterWithdrawWithOneWeiTolerance() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedDebtReduction = comparison.accountBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.accountAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 1;
+        uint256 expectedDebtReduction = comparison.dataBefore.proportionalDebtInEth(sharesToRedeem);
+        comparison.dataAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 1;
 
         bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
         assertTrue(result, "Debt check should pass with 1 wei tolerance for Aave rounding");
@@ -143,8 +143,8 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckDebtAfterWithdrawWithTooHighDebt() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedDebtReduction = comparison.accountBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.accountAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 2;
+        uint256 expectedDebtReduction = comparison.dataBefore.proportionalDebtInEth(sharesToRedeem);
+        comparison.dataAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 2;
 
         bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
         assertFalse(result, "Debt check should fail with debt higher than 1 wei tolerance");
@@ -152,8 +152,8 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckCollateralAfterWithdrawExactMatch() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedCollateralReduction = comparison.accountBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.accountAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction;
+        uint256 expectedCollateralReduction = comparison.dataBefore.proportionalCollateralInLst(sharesToRedeem);
+        comparison.dataAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction;
 
         bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
         assertTrue(result, "Collateral check should pass with exact expected collateral amount");
@@ -161,8 +161,8 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckCollateralAfterWithdrawWithOneWeiTolerance() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedCollateralReduction = comparison.accountBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.accountAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 1;
+        uint256 expectedCollateralReduction = comparison.dataBefore.proportionalCollateralInLst(sharesToRedeem);
+        comparison.dataAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 1;
 
         bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
         assertTrue(result, "Collateral check should pass with 1 wei tolerance for Aave rounding");
@@ -170,8 +170,8 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testCheckCollateralAfterWithdrawWithTooLowCollateral() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedCollateralReduction = comparison.accountBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.accountAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 2;
+        uint256 expectedCollateralReduction = comparison.dataBefore.proportionalCollateralInLst(sharesToRedeem);
+        comparison.dataAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 2;
 
         bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
         assertFalse(result, "Collateral check should fail with collateral lower than 1 wei tolerance");
@@ -190,10 +190,10 @@ contract VaultSnapshotComparisonTest is Test {
 
         vm.assume(afterColInEth - afterDebt >= beforeColInEth - beforeDebt);
 
-        comparison.accountBefore.lstCollateralAmountInEth = beforeColInEth;
-        comparison.accountBefore.wethDebtAmount = beforeDebt;
-        comparison.accountAfter.lstCollateralAmountInEth = afterColInEth;
-        comparison.accountAfter.wethDebtAmount = afterDebt;
+        comparison.dataBefore.lstCollateralAmountInEth = beforeColInEth;
+        comparison.dataBefore.wethDebtAmount = beforeDebt;
+        comparison.dataAfter.lstCollateralAmountInEth = afterColInEth;
+        comparison.dataAfter.wethDebtAmount = afterDebt;
 
         uint256 expected = (afterColInEth - afterDebt) - (beforeColInEth - beforeDebt);
         uint256 result = comparison.navIncreaseEth();
@@ -213,10 +213,10 @@ contract VaultSnapshotComparisonTest is Test {
 
         vm.assume(beforeColInEth - beforeDebt >= afterColInEth - afterDebt);
 
-        comparison.accountBefore.lstCollateralAmountInEth = beforeColInEth;
-        comparison.accountBefore.wethDebtAmount = beforeDebt;
-        comparison.accountAfter.lstCollateralAmountInEth = afterColInEth;
-        comparison.accountAfter.wethDebtAmount = afterDebt;
+        comparison.dataBefore.lstCollateralAmountInEth = beforeColInEth;
+        comparison.dataBefore.wethDebtAmount = beforeDebt;
+        comparison.dataAfter.lstCollateralAmountInEth = afterColInEth;
+        comparison.dataAfter.wethDebtAmount = afterDebt;
 
         uint256 expected = (beforeColInEth - beforeDebt) - (afterColInEth - afterDebt);
         uint256 result = comparison.navDecreaseEth();
@@ -228,20 +228,20 @@ contract VaultSnapshotComparisonTest is Test {
         totalSupply = bound(totalSupply, 1, type(uint128).max);
         sharesToRedeem = bound(sharesToRedeem, 1, totalSupply);
 
-        comparison.accountBefore.wethDebtAmount = initialDebt;
-        comparison.accountBefore.vaultTotalSupply = totalSupply;
-        comparison.accountAfter.vaultTotalSupply = totalSupply;
+        comparison.dataBefore.wethDebtAmount = initialDebt;
+        comparison.dataBefore.vaultTotalSupply = totalSupply;
+        comparison.dataAfter.vaultTotalSupply = totalSupply;
 
-        uint256 expectedDebtReduction = comparison.accountBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.accountAfter.wethDebtAmount = initialDebt - expectedDebtReduction;
+        uint256 expectedDebtReduction = comparison.dataBefore.proportionalDebtInEth(sharesToRedeem);
+        comparison.dataAfter.wethDebtAmount = initialDebt - expectedDebtReduction;
 
         assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
 
         if (expectedDebtReduction < initialDebt) {
-            comparison.accountAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 1;
+            comparison.dataAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 1;
             assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
 
-            comparison.accountAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 2;
+            comparison.dataAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 2;
             assertFalse(comparison.checkDebtAfterWithdraw(sharesToRedeem));
         }
     }
@@ -255,18 +255,18 @@ contract VaultSnapshotComparisonTest is Test {
         totalSupply = bound(totalSupply, 1, type(uint128).max);
         sharesToRedeem = bound(sharesToRedeem, 1, totalSupply);
 
-        comparison.accountBefore.lstCollateralAmount = initialCollateral;
-        comparison.accountBefore.vaultTotalSupply = totalSupply;
-        comparison.accountAfter.vaultTotalSupply = totalSupply;
+        comparison.dataBefore.lstCollateralAmount = initialCollateral;
+        comparison.dataBefore.vaultTotalSupply = totalSupply;
+        comparison.dataAfter.vaultTotalSupply = totalSupply;
 
-        uint256 expectedCollateralReduction = comparison.accountBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.accountAfter.lstCollateralAmount = initialCollateral - expectedCollateralReduction;
+        uint256 expectedCollateralReduction = comparison.dataBefore.proportionalCollateralInLst(sharesToRedeem);
+        comparison.dataAfter.lstCollateralAmount = initialCollateral - expectedCollateralReduction;
 
         assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
 
         // simulate aave rounding in it's favor
         if (initialCollateral > expectedCollateralReduction) {
-            comparison.accountAfter.lstCollateralAmount = initialCollateral - expectedCollateralReduction - 1;
+            comparison.dataAfter.lstCollateralAmount = initialCollateral - expectedCollateralReduction - 1;
             assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
         }
     }
@@ -285,8 +285,8 @@ contract VaultSnapshotComparisonTest is Test {
     function testEdgeCaseMaxShares() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY;
 
-        comparison.accountAfter.wethDebtAmount = 0;
-        comparison.accountAfter.lstCollateralAmount = 0;
+        comparison.dataAfter.wethDebtAmount = 0;
+        comparison.dataAfter.lstCollateralAmount = 0;
 
         assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
         assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
@@ -294,12 +294,12 @@ contract VaultSnapshotComparisonTest is Test {
 
     function testHealthFactorCheckExactTargetFromBelow() public {
         uint256 belowTargetHF = TARGET_HEALTH_FACTOR - 0.1e18;
-        comparison.accountBefore.wethDebtAmount = comparison.accountBefore.lstCollateralAmountInEth
-            * comparison.accountBefore.liquidationThresholdScaled18() / belowTargetHF;
+        comparison.dataBefore.wethDebtAmount = comparison.dataBefore.lstCollateralAmountInEth
+            * comparison.dataBefore.liquidationThresholdScaled18() / belowTargetHF;
 
-        uint256 targetDebt = comparison.accountAfter.lstCollateralAmountInEth
-            * comparison.accountAfter.liquidationThresholdScaled18() / TARGET_HEALTH_FACTOR;
-        comparison.accountAfter.wethDebtAmount = targetDebt;
+        uint256 targetDebt = comparison.dataAfter.lstCollateralAmountInEth
+            * comparison.dataAfter.liquidationThresholdScaled18() / TARGET_HEALTH_FACTOR;
+        comparison.dataAfter.wethDebtAmount = targetDebt;
 
         bool result = comparison.checkHealthFactorAfterDeposit(TARGET_HEALTH_FACTOR);
         assertTrue(result, "Should pass when reaching exact target from below");

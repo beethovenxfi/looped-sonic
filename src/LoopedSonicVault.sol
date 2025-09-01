@@ -155,12 +155,12 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         VaultSnapshotComparison.Data memory data;
 
         // Store the aave account state before the callback performs the deposit
-        data.accountBefore = getVaultSnapshot();
+        data.dataBefore = getVaultSnapshot();
 
         // Execute the callback, giving control back to the caller to perform the deposit
         (msg.sender).functionCall(callbackData);
 
-        data.accountAfter = getVaultSnapshot();
+        data.dataAfter = getVaultSnapshot();
         uint256 navIncreaseEth = data.navIncreaseEth();
 
         require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, NavIncreaseBelowMin());
@@ -168,7 +168,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        uint256 shares = totalSupply() * data.navIncreaseEth() / data.accountBefore.netAssetValueInEth();
+        uint256 shares = totalSupply() * data.navIncreaseEth() / data.dataBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
@@ -191,7 +191,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         VaultSnapshotComparison.Data memory data;
 
         // -------------------- Pre‑state snapshot -------------------------
-        data.accountBefore = getVaultSnapshot();
+        data.dataBefore = getVaultSnapshot();
 
         // Burn shares up‑front for withdrawals
         // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer of
@@ -203,7 +203,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         // -------------------- Post checks -------------------------------
 
-        data.accountAfter = getVaultSnapshot();
+        data.dataAfter = getVaultSnapshot();
 
         require(data.checkDebtAfterWithdraw(sharesToRedeem), InvalidDebtAfterWithdraw());
         require(data.checkCollateralAfterWithdraw(sharesToRedeem), InvalidCollateralAfterWithdraw());
