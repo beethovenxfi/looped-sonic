@@ -250,6 +250,6 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
         vault.setWithdrawsPaused(false);
 
         // Now withdraw should work
-        _withdrawFromVault(user1, sharesToRedeem);
+        _withdrawFromVault(user1, sharesToRedeem, "");
     }
 }

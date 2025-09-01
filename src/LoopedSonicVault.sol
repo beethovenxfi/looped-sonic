@@ -186,7 +186,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         acquireLock
     {
         require(!withdrawsPaused, WithdrawsPaused());
-        require(sharesToRedeem > MIN_SHARES_TO_REDEEM, NotEnoughShares());
+        require(sharesToRedeem >= MIN_SHARES_TO_REDEEM, NotEnoughShares());
 
         VaultSnapshotComparison.Data memory data;
 

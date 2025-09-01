@@ -95,11 +95,12 @@ contract LoopedSonicVaultBase is Test {
         }
     }
 
-    function _withdrawFromVault(address user, uint256 sharesToRedeem) internal {
+    function _withdrawFromVault(address user, uint256 sharesToRedeem, bytes memory optionalCallbackData) internal {
         (uint256 collateralInLst, uint256 debtInEth) = vault.getCollateralAndDebtForShares(sharesToRedeem);
 
-        bytes memory callbackData =
-            abi.encodeWithSelector(this._withdrawCallback.selector, user, collateralInLst, debtInEth);
+        bytes memory callbackData = abi.encodeWithSelector(
+            this._withdrawCallback.selector, user, collateralInLst, debtInEth, optionalCallbackData
+        );
 
         vm.prank(user);
         vault.transfer(address(this), sharesToRedeem);
@@ -107,7 +108,12 @@ contract LoopedSonicVaultBase is Test {
         vault.withdraw(sharesToRedeem, callbackData);
     }
 
-    function _withdrawCallback(address user, uint256 collateralInLst, uint256 debtInEth) external {
+    function _withdrawCallback(
+        address user,
+        uint256 collateralInLst,
+        uint256 debtInEth,
+        bytes memory optionalCallbackData
+    ) external {
         vm.deal(address(this), debtInEth);
         WETH.deposit{value: debtInEth}();
 
@@ -125,6 +131,10 @@ contract LoopedSonicVaultBase is Test {
         WETH.deposit{value: collateralInEth}();
 
         WETH.transfer(user, collateralInEth);
+
+        if (optionalCallbackData.length > 0) {
+            address(this).functionCall(optionalCallbackData);
+        }
     }
 
     function _setupStandardDeposit() internal returns (uint256 shares) {
@@ -169,6 +179,10 @@ contract LoopedSonicVaultBase is Test {
         if (optionalCallbackData.length > 0) {
             address(this).functionCall(optionalCallbackData);
         }
+    }
+
+    function _getUninitializedVault() internal returns (LoopedSonicVault) {
+        return new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
     }
 
     function _getLstPrice() internal view returns (uint256) {
