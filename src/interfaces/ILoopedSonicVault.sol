@@ -5,8 +5,8 @@ import {VaultSnapshot} from "../libraries/VaultSnapshot.sol";
 
 /**
  * @title ILoopedSonicVault
- * @notice Interface for LoopedSonicVault - an ERC20 vault that creates leveraged wstETH positions on Aave
- *         via flash-loan-style atomic execution flows. Supports WETH + wstETH as managed assets with
+ * @notice Interface for LoopedSonicVault - an ERC20 vault that creates leveraged LST positions on Aave
+ *         via flash-loan-style atomic execution flows. Supports WETH + LST as managed assets with
  *         modular primitives callable only within operation mode.
  */
 interface ILoopedSonicVault {
@@ -325,6 +325,28 @@ interface ILoopedSonicVault {
         external
         view
         returns (uint256 collateralInLst, uint256 debtInEth);
+
+    /**
+     * @notice Gets the current session balances for WETH and LST during locked operations
+     * @dev Returns the transient session balances tracked during atomic operations
+     * @return wethSessionBalance The current WETH session balance
+     * @return lstSessionBalance The current LST session balance
+     */
+    function getSessionBalances() external view returns (uint256 wethSessionBalance, uint256 lstSessionBalance);
+
+    /**
+     * @notice Gets the amount of LST collateral deposited in Aave
+     * @dev Returns the balance of LST aTokens held by the vault
+     * @return The amount of LST collateral in Aave
+     */
+    function getAaveLstCollateralAmount() external view returns (uint256);
+
+    /**
+     * @notice Gets the amount of WETH debt owed to Aave
+     * @dev Returns the balance of WETH variable debt tokens held by the vault
+     * @return The amount of WETH debt in Aave
+     */
+    function getAaveWethDebtAmount() external view returns (uint256);
 
     // ---------------------------------------------------------------------
     // Admin functions
