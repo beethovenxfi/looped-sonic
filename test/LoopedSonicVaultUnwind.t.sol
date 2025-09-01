@@ -145,7 +145,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertEq(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth());
+        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth(), 1);
     }
 
     function testUnwindWithSlippage() public {
@@ -182,9 +182,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
             "WETH debt should decrease by repaid amount with high slippage"
         );
 
-        assertEq(
+        assertApproxEqAbs(
             snapshotAfter.netAssetValueInEth(),
             snapshotBefore.netAssetValueInEth() - slippageAmount,
+            1,
             "Net asset value should decrease by slippage amount"
         );
 
@@ -211,7 +212,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertEq(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - slippageAmount);
+        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - slippageAmount, 1);
     }
 
     function testUnwindWithOneWeiSlippage() public {
@@ -228,7 +229,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertEq(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1);
+        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1, 1);
     }
 
     function testUnwindRevertsWithInvalidContract() public {

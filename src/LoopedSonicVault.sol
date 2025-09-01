@@ -168,7 +168,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        uint256 shares = totalSupply() * data.navIncreaseEth() / data.dataBefore.netAssetValueInEth();
+        uint256 shares = totalSupply() * navIncreaseEth / data.dataBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
@@ -190,7 +190,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         VaultSnapshotComparison.Data memory data;
 
-        // -------------------- Pre‑state snapshot -------------------------
         data.dataBefore = getVaultSnapshot();
 
         // Burn shares up‑front for withdrawals
@@ -198,10 +197,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         // of permissions
         _burn(msg.sender, sharesToRedeem);
 
-        // ----------------------- Callback -------------------------------
         (msg.sender).functionCall(callbackData);
-
-        // -------------------- Post checks -------------------------------
 
         data.dataAfter = getVaultSnapshot();
 
@@ -454,6 +450,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
     function getAaveWethDebtAmount() public view returns (uint256) {
         return WETH_VARIABLE_DEBT_TOKEN.balanceOf(address(this));
+    }
+
+    function getHealthFactor() public view returns (uint256) {
+        return getVaultSnapshot().healthFactor();
+    }
+
+    function getBorrowAmountForLoopInEth() public view returns (uint256) {
+        return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
     // ---------------------------------------------------------------------

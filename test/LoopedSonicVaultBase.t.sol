@@ -146,8 +146,6 @@ contract LoopedSonicVaultBase is Test {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
         uint256 totalDebt = 0;
-        VaultSnapshot.Data memory snapshot;
-        uint256 targetHealthFactor = vault.targetHealthFactor();
 
         vault.pullWeth(initialAssets);
 
@@ -163,8 +161,7 @@ contract LoopedSonicVaultBase is Test {
 
             totalCollateral += lstAmount;
 
-            snapshot = vault.getVaultSnapshot();
-            uint256 borrowAmount = snapshot.borrowAmountForLoopInEth(targetHealthFactor);
+            uint256 borrowAmount = vault.getBorrowAmountForLoopInEth();
 
             if (borrowAmount < vault.MIN_LST_DEPOSIT()) {
                 break;
@@ -229,7 +226,7 @@ contract LoopedSonicVaultBase is Test {
         vault.getCollateralAndDebtForShares(1e18);
     }
 
-    function _donateAaveLstATokensToVault(address fromUser, uint256 ethAmount) internal returns (uint256 lstAmount) {
+    function _donateAaveLstATokensToVault(address fromUser, uint256 ethAmount) public returns (uint256 lstAmount) {
         vm.deal(fromUser, ethAmount);
 
         vm.startPrank(fromUser);

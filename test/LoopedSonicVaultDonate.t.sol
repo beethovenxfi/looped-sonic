@@ -14,16 +14,19 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
 
     address public constant USDC = 0x29219dd400f2Bf60E5a23d13Be72B486D4038894;
     address public constant USDC_WHALE = 0xA4E471dbfe8C95d4c44f520b19CEe436c01c3267;
+    address public constant LST_ADMIN = 0x6Daeb8BB06A7CF3475236C6c567029d333455E38;
 
     function testDonatingATokenIncreasesCollateralAndNav() public {
         _setupStandardDeposit();
 
         uint256 donateAmount = 1 ether;
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+        uint256 rateBefore = vault.getRate();
 
         _donateAaveLstATokensToVault(user1, donateAmount);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
+        uint256 rateAfter = vault.getRate();
 
         assertApproxEqAbs(
             snapshotAfter.lstCollateralAmountInEth,
@@ -40,6 +43,32 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
         );
 
         assertTrue(snapshotAfter.healthFactor() > snapshotBefore.healthFactor(), "Health factor should increase");
+        assertTrue(rateAfter > rateBefore, "Rate should increase");
+        assertTrue(
+            snapshotAfter.availableBorrowsInEth() > snapshotBefore.availableBorrowsInEth(),
+            "Available borrows should increase"
+        );
+    }
+
+    function testDonationFromMultipleUsers() public {
+        _setupStandardDeposit();
+
+        uint256 donateAmount = 1 ether;
+
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+
+        _donateAaveLstATokensToVault(user1, donateAmount);
+        _donateAaveLstATokensToVault(user2, donateAmount);
+
+        VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
+        assertTrue(snapshotAfter.healthFactor() > snapshotBefore.healthFactor(), "Health factor should increase");
+
+        assertApproxEqAbs(
+            snapshotAfter.lstCollateralAmountInEth,
+            snapshotBefore.lstCollateralAmountInEth + donateAmount * 2,
+            2,
+            "LST collateral should increase by the donate amount"
+        );
     }
 
     function testDonatingUsdcHasNoEffect() public {
@@ -64,4 +93,21 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
         assertEq(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth(), "Nav should not change");
         assertEq(snapshotAfter.healthFactor(), snapshotBefore.healthFactor(), "Health factor should not change");
     }
+
+    /// forge-config: default.allow_internal_expect_revert = true
+    /* function testDonateDuringDeposit() public {
+        _setupStandardDeposit();
+
+        uint256 donateAmount = 1 ether;
+
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+
+        bytes memory callbackData =
+            abi.encodeWithSelector(this._donateAaveLstATokensToVault.selector, user1, donateAmount);
+
+        // This will call the donation at the end of the deposit callback. The donation should increase
+        // the health factor outside of the target range bounds and cause the deposit to revert.
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.HealthFactorNotInRange.selector));
+        _depositToVault(user1, 1 ether, 0, callbackData);
+    } */
 }

@@ -43,8 +43,6 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
         uint256 totalDebt = 0;
-        VaultSnapshot.Data memory snapshot;
-        uint256 targetHealthFactor = VAULT.targetHealthFactor();
 
         VAULT.pullWeth(initialAssets);
 
@@ -60,8 +58,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
             totalCollateral += lstAmount;
 
-            snapshot = VAULT.getVaultSnapshot();
-            uint256 borrowAmount = snapshot.borrowAmountForLoopInEth(targetHealthFactor);
+            uint256 borrowAmount = VAULT.getBorrowAmountForLoopInEth();
 
             if (borrowAmount < VAULT.MIN_LST_DEPOSIT()) {
                 break;
