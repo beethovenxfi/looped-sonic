@@ -12,60 +12,56 @@ import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
 
-    function testDonateATokenForLstFromUserAddress() public {
+    address public constant USDC = 0x29219dd400f2Bf60E5a23d13Be72B486D4038894;
+    address public constant USDC_WHALE = 0xA4E471dbfe8C95d4c44f520b19CEe436c01c3267;
+
+    function testDonatingATokenIncreasesCollateralAndNav() public {
         _setupStandardDeposit();
 
-        uint256 donateAmount = 0.1 ether;
-
-        // Get LST aToken address from the vault
-        IERC20 lstAToken = vault.LST_A_TOKEN();
-
-        vm.deal(user1, donateAmount);
-
-        // Setup: First, the donator needs to get some LST and supply it to Aave to get aTokens
-        vm.startPrank(user1);
-        uint256 lstAmount = LST.deposit{value: donateAmount}();
-
-        // Supply LST to Aave to get aTokens
-        LST.approve(address(vault.AAVE_POOL()), lstAmount);
-        vault.AAVE_POOL().supply(address(LST), lstAmount, user1, 0);
-
-        uint256 aTokenBalance = lstAToken.balanceOf(user1);
-        uint256 user1ATokenBalanceBefore = aTokenBalance;
-        uint256 vaultATokenBalanceBefore = lstAToken.balanceOf(address(vault));
-
+        uint256 donateAmount = 1 ether;
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
 
-        // Transfer aTokens directly to the vault
-        lstAToken.transfer(address(vault), aTokenBalance);
+        _donateAaveLstATokensToVault(user1, donateAmount);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        console.log("collateralAmountInEth before", snapshotBefore.lstCollateralAmountInEth);
-        console.log("collateralAmountInEth after ", snapshotAfter.lstCollateralAmountInEth);
-
-        console.log("netAssetValueInEth before", snapshotBefore.netAssetValueInEth());
-        console.log("netAssetValueInEth after ", snapshotAfter.netAssetValueInEth());
-
-        // Verify the transfer happened
-        /* assertEq(
-            lstAToken.balanceOf(user1),
-            user1ATokenBalanceBefore - aTokenBalance,
-            "Donator aToken balance should decrease"
+        assertApproxEqAbs(
+            snapshotAfter.lstCollateralAmountInEth,
+            snapshotBefore.lstCollateralAmountInEth + donateAmount,
+            1,
+            "LST collateral should increase by the donate amount"
         );
+
+        assertApproxEqAbs(
+            snapshotAfter.netAssetValueInEth(),
+            snapshotBefore.netAssetValueInEth() + donateAmount,
+            1,
+            "Nav should increase by the donate amount"
+        );
+
+        assertTrue(snapshotAfter.healthFactor() > snapshotBefore.healthFactor(), "Health factor should increase");
+    }
+
+    function testDonatingUsdcHasNoEffect() public {
+        _setupStandardDeposit();
+
+        uint256 usdcAmount = 1_000_000e6;
+
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+
+        vm.startPrank(USDC_WHALE);
+        IERC20(USDC).approve(address(vault.AAVE_POOL()), usdcAmount);
+        vault.AAVE_POOL().supply(USDC, usdcAmount, address(vault), 0);
+        vm.stopPrank();
+
+        VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
+
         assertEq(
-            lstAToken.balanceOf(address(vault)),
-            vaultATokenBalanceBefore + aTokenBalance,
-            "Vault aToken balance should increase"
-        );
-
-        // The vault's LST collateral should increase because aTokens represent LST collateral in Aave
-        assertGt(
             snapshotAfter.lstCollateralAmountInEth,
             snapshotBefore.lstCollateralAmountInEth,
-            "LST collateral should increase"
-        ); */
-
-        vm.stopPrank();
+            "LST collateral should not change"
+        );
+        assertEq(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth(), "Nav should not change");
+        assertEq(snapshotAfter.healthFactor(), snapshotBefore.healthFactor(), "Health factor should not change");
     }
 }

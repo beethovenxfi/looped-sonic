@@ -229,5 +229,17 @@ contract LoopedSonicVaultBase is Test {
         vault.getCollateralAndDebtForShares(1e18);
     }
 
+    function _donateAaveLstATokensToVault(address fromUser, uint256 ethAmount) internal returns (uint256 lstAmount) {
+        vm.deal(fromUser, ethAmount);
+
+        vm.startPrank(fromUser);
+
+        lstAmount = LST.deposit{value: ethAmount}();
+        LST.approve(address(vault.AAVE_POOL()), lstAmount);
+        vault.AAVE_POOL().supply(address(LST), lstAmount, address(vault), 0);
+
+        vm.stopPrank();
+    }
+
     function emptyCallback() external {}
 }
