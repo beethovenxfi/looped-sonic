@@ -55,7 +55,7 @@ library VaultSnapshot {
             : data.lstCollateralAmountInEth * data.liquidationThresholdScaled18() / data.wethDebtAmount;
     }
 
-    function amountToBorrowInEth(Data memory data, uint256 targetHealthFactor) internal pure returns (uint256) {
+    function borrowAmountForLoopInEth(Data memory data, uint256 targetHealthFactor) internal pure returns (uint256) {
         // Aave's base currency is using 8 decimals, we account for that here
         uint256 maxBorrowAmount = data.availableBorrowsInEth() * 0.9999999e18 / 1e18;
         uint256 currentHealthFactor = data.healthFactor();

@@ -164,7 +164,7 @@ contract LoopedSonicVaultBase is Test {
             totalCollateral += lstAmount;
 
             snapshot = vault.getVaultSnapshot();
-            uint256 borrowAmount = snapshot.amountToBorrowInEth(targetHealthFactor);
+            uint256 borrowAmount = snapshot.borrowAmountForLoopInEth(targetHealthFactor);
 
             if (borrowAmount < vault.MIN_LST_DEPOSIT()) {
                 break;
