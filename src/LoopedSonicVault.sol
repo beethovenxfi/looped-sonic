@@ -154,13 +154,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         VaultSnapshotComparison.Data memory data;
 
-        // Store the aave account state before the callback performs the deposit
-        data.dataBefore = getVaultSnapshot();
+        // Store the vault state before the callback performs the deposit
+        data.stateBefore = getVaultSnapshot();
 
         // Execute the callback, giving control back to the caller to perform the deposit
         (msg.sender).functionCall(callbackData);
 
-        data.dataAfter = getVaultSnapshot();
+        data.stateAfter = getVaultSnapshot();
         uint256 navIncreaseEth = data.navIncreaseEth();
 
         require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, NavIncreaseBelowMin());
@@ -168,7 +168,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        uint256 shares = totalSupply() * navIncreaseEth / data.dataBefore.netAssetValueInEth();
+        uint256 shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
@@ -190,7 +190,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         VaultSnapshotComparison.Data memory data;
 
-        data.dataBefore = getVaultSnapshot();
+        data.stateBefore = getVaultSnapshot();
 
         // Burn shares up‑front for withdrawals
         // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer of
@@ -199,7 +199,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         (msg.sender).functionCall(callbackData);
 
-        data.dataAfter = getVaultSnapshot();
+        data.stateAfter = getVaultSnapshot();
 
         require(data.checkDebtAfterWithdraw(sharesToRedeem), InvalidDebtAfterWithdraw());
         require(data.checkCollateralAfterWithdraw(sharesToRedeem), InvalidCollateralAfterWithdraw());
@@ -255,7 +255,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
         // The redemption amount is the true value of the collateral, in ETH terms. It is the amount of WETH that
         // we would receive from doing the time delayed redemption of the LST.
-        uint256 redemptionAmount = _lstToEth(lstAmountToWithdraw);
+        uint256 redemptionAmount = LST.convertToAssets(lstAmountToWithdraw);
 
         // Disallow msg.sender from calling into the vault during the scope of the callback
         allowedCaller = address(0);
@@ -386,7 +386,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     function getVaultSnapshot() public view returns (VaultSnapshot.Data memory data) {
         data.wethDebtAmount = getAaveWethDebtAmount();
         data.lstCollateralAmount = getAaveLstCollateralAmount();
-        data.lstCollateralAmountInEth = _lstToEth(data.lstCollateralAmount);
+        data.lstCollateralAmountInEth = lstToEth(data.lstCollateralAmount);
 
         (data.ltv, data.liquidationThreshold,) = AAVE_POOL.getEModeCategoryCollateralConfig(AAVE_E_MODE_CATEGORY_ID);
 
@@ -460,6 +460,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
+    function lstToEth(uint256 lstAmount) public view returns (uint256) {
+        return LST.convertToAssets(lstAmount);
+    }
+
     // ---------------------------------------------------------------------
     // Admin functions
     // ---------------------------------------------------------------------
@@ -498,10 +502,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     // ---------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------
-
-    function _lstToEth(uint256 lstAmount) private view returns (uint256) {
-        return LST.convertToAssets(lstAmount);
-    }
 
     function _setDepositsPaused(bool _paused) internal {
         if (depositsPaused != _paused) {

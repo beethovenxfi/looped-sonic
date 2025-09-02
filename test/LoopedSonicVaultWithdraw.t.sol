@@ -27,14 +27,14 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
 
         uint256 sharesBefore = vault.balanceOf(user1);
         VaultSnapshotComparison.Data memory data;
-        data.dataBefore = vault.getVaultSnapshot();
+        data.stateBefore = vault.getVaultSnapshot();
 
         (uint256 expectedCollateralInLst, uint256 expectedDebtInEth) =
             vault.getCollateralAndDebtForShares(sharesToRedeem);
 
         _withdrawFromVault(user1, sharesToRedeem, "");
 
-        data.dataAfter = vault.getVaultSnapshot();
+        data.stateAfter = vault.getVaultSnapshot();
         uint256 sharesAfter = vault.balanceOf(user1);
 
         assertEq(sharesAfter, sharesBefore - sharesToRedeem, "Shares should be burned");

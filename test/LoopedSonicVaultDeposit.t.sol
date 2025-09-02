@@ -30,7 +30,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         uint256 sharesBefore = vault.balanceOf(user1);
         VaultSnapshotComparison.Data memory data;
-        data.dataBefore = vault.getVaultSnapshot();
+        data.stateBefore = vault.getVaultSnapshot();
         uint256 invariantBefore = vault.totalAssets() * 1e18 / vault.totalSupply();
         uint256 expectedShares = vault.convertToShares(depositAmount);
 
@@ -43,7 +43,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         vault.deposit(user1, depositData);
 
-        data.dataAfter = vault.getVaultSnapshot();
+        data.stateAfter = vault.getVaultSnapshot();
         uint256 sharesAfter = vault.balanceOf(user1);
         uint256 invariantAfter = vault.totalAssets() * 1e18 / vault.totalSupply();
 
@@ -54,7 +54,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         assertEq(invariantAfter, invariantBefore, "Invariant should not change");
         assertApproxEqAbs(
             vault.totalSupply(),
-            data.dataBefore.vaultTotalSupply + expectedShares,
+            data.stateBefore.vaultTotalSupply + expectedShares,
             NAV_DECREASE_TOLERANCE,
             "Total supply should increase by expected amount"
         );
@@ -198,6 +198,88 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, reentrancyData);
 
         vault.deposit(user1, depositData);
+    }
+
+    function testDepositRevertsWithNonZeroSessionBalances() public {
+        uint256 depositAmount = 1 ether;
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory testData = abi.encodeWithSelector(this._createLstSessionBalance.selector);
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, testData);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LSTSessionBalanceNotZero.selector));
+        vault.deposit(user1, depositData);
+
+        bytes memory testData2 = abi.encodeWithSelector(this._createWethSessionBalance.selector);
+        bytes memory depositData2 = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, testData2);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.WETHSessionBalanceNotZero.selector));
+        vault.deposit(user1, depositData2);
+    }
+
+    function _createLstSessionBalance() external {
+        vault.aaveWithdrawLst(1);
+    }
+
+    function _createWethSessionBalance() external {
+        vault.aaveBorrowWeth(1);
+    }
+
+    function testLargeDepositBelowTargetHealthFactor() public {
+        _setupStandardDeposit();
+
+        uint256 depositAmount = 100 ether;
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        assertEq(vault.getHealthFactor(), vault.targetHealthFactor(), "Health factor should be at target after setup");
+
+        vm.warp(block.timestamp + 10 * 365 days);
+
+        assertLt(vault.getHealthFactor(), vault.targetHealthFactor(), "Health factor should be below target after warp");
+
+        vault.deposit(user1, depositData);
+
+        assertEq(
+            vault.getHealthFactor(),
+            vault.targetHealthFactor(),
+            "Health factor should be back at target after large deposit"
+        );
+    }
+
+    function testSmallDepositBelowTargetHealthFactor() public {
+        _setupStandardDeposit();
+
+        uint256 depositAmount = 0.02 ether;
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        assertEq(vault.getHealthFactor(), vault.targetHealthFactor(), "Health factor should be at target after setup");
+
+        vm.warp(block.timestamp + 10 * 365 days);
+
+        uint256 healthFactorAfterWarp = vault.getHealthFactor();
+
+        assertLt(healthFactorAfterWarp, vault.targetHealthFactor(), "Health factor should be below target after warp");
+
+        vault.deposit(user1, depositData);
+
+        assertGt(vault.getHealthFactor(), healthFactorAfterWarp, "Health factor should be above previous after deposit");
+
+        // A small deposit relative to the vault size will not be enough to bring the health factor back up to the target
+        assertLt(
+            vault.getHealthFactor(),
+            vault.targetHealthFactor(),
+            "Health factor should be below target after small deposit"
+        );
     }
 
     function _invalidDeposit(uint256 amount) external {
