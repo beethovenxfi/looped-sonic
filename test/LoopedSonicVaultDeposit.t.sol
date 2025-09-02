@@ -227,7 +227,35 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         vault.aaveBorrowWeth(1);
     }
 
+    function testDepositAfterTargetHealthFactorChange() public {
+        _setupStandardDeposit();
+
+        uint256 startingTargetHealthFactor = vault.targetHealthFactor();
+        uint256 newTargetHealthFactor = 1.6e18;
+
+        uint256 depositAmount = 100 ether;
+
+        vm.prank(admin);
+        vault.setTargetHealthFactor(newTargetHealthFactor);
+
+        assertEq(vault.targetHealthFactor(), newTargetHealthFactor, "Target health factor should be changed");
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        assertEq(
+            vault.getHealthFactor(), startingTargetHealthFactor, "Health factor should be at old target before deposit"
+        );
+
+        vault.deposit(user1, depositData);
+
+        assertEq(vault.getHealthFactor(), newTargetHealthFactor, "Health factor should be at new target after deposit");
+    }
+
     function testLargeDepositBelowTargetHealthFactor() public {
+        uint256 targetHealthFactor = vault.targetHealthFactor();
         _setupStandardDeposit();
 
         uint256 depositAmount = 100 ether;
@@ -237,22 +265,21 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
 
-        assertEq(vault.getHealthFactor(), vault.targetHealthFactor(), "Health factor should be at target after setup");
+        assertEq(vault.getHealthFactor(), targetHealthFactor, "Health factor should be at target after setup");
 
         vm.warp(block.timestamp + 10 * 365 days);
 
-        assertLt(vault.getHealthFactor(), vault.targetHealthFactor(), "Health factor should be below target after warp");
+        assertLt(vault.getHealthFactor(), targetHealthFactor, "Health factor should be below target after warp");
 
         vault.deposit(user1, depositData);
 
         assertEq(
-            vault.getHealthFactor(),
-            vault.targetHealthFactor(),
-            "Health factor should be back at target after large deposit"
+            vault.getHealthFactor(), targetHealthFactor, "Health factor should be back at target after large deposit"
         );
     }
 
     function testSmallDepositBelowTargetHealthFactor() public {
+        uint256 targetHealthFactor = vault.targetHealthFactor();
         _setupStandardDeposit();
 
         uint256 depositAmount = 0.02 ether;
@@ -262,13 +289,14 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
 
-        assertEq(vault.getHealthFactor(), vault.targetHealthFactor(), "Health factor should be at target after setup");
+        assertEq(vault.getHealthFactor(), targetHealthFactor, "Health factor should be at target after setup");
 
+        // advance 10 years
         vm.warp(block.timestamp + 10 * 365 days);
 
         uint256 healthFactorAfterWarp = vault.getHealthFactor();
 
-        assertLt(healthFactorAfterWarp, vault.targetHealthFactor(), "Health factor should be below target after warp");
+        assertLt(healthFactorAfterWarp, targetHealthFactor, "Health factor should be below target after warp");
 
         vault.deposit(user1, depositData);
 
@@ -276,10 +304,137 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         // A small deposit relative to the vault size will not be enough to bring the health factor back up to the target
         assertLt(
-            vault.getHealthFactor(),
-            vault.targetHealthFactor(),
-            "Health factor should be below target after small deposit"
+            vault.getHealthFactor(), targetHealthFactor, "Health factor should be below target after small deposit"
         );
+    }
+
+    function testLargeDepositAboveTargetHealthFactor() public {
+        _setupStandardDeposit();
+
+        uint256 donateAmount = 1_000 ether;
+        uint256 depositAmount = 100 ether;
+        uint256 targetHealthFactor = vault.targetHealthFactor();
+
+        _donateAaveLstATokensToVault(user1, donateAmount);
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        assertGt(vault.getHealthFactor(), targetHealthFactor, "Health factor should be above target after donation");
+
+        vault.deposit(user1, depositData);
+
+        assertEq(
+            vault.getHealthFactor(), targetHealthFactor, "Health factor should be back at target after large deposit"
+        );
+    }
+
+    function testSmallDepositAboveTargetHealthFactor() public {
+        _setupStandardDeposit();
+
+        uint256 donateAmount = 1_000 ether;
+        uint256 depositAmount = 0.1 ether;
+        uint256 targetHealthFactor = vault.targetHealthFactor();
+
+        _donateAaveLstATokensToVault(user1, donateAmount);
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        assertGt(vault.getHealthFactor(), targetHealthFactor, "Health factor should be above target after donation");
+
+        vault.deposit(user1, depositData);
+
+        assertEq(
+            vault.getHealthFactor(), targetHealthFactor, "Health factor should be back at target after small deposit"
+        );
+    }
+
+    function testFuzzDepositSuccess(uint256 depositAmount) public {
+        // TODO: figure out how to up the aave deposit limit
+        vm.assume(depositAmount >= 0.02 ether && depositAmount <= 5_000_000 ether);
+
+        vm.deal(user1, depositAmount);
+        vm.prank(user1);
+        WETH.deposit{value: depositAmount}();
+
+        uint256 sharesBefore = vault.balanceOf(user1);
+        VaultSnapshotComparison.Data memory data;
+        data.stateBefore = vault.getVaultSnapshot();
+        uint256 invariantBefore = vault.totalAssets() * 1e18 / vault.totalSupply();
+        uint256 expectedShares = vault.convertToShares(depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        WETH.transferFrom(user1, address(this), depositAmount);
+
+        vm.expectEmit(true, true, false, false);
+        emit ILoopedSonicVault.Deposit(address(this), user1, 0, 0);
+
+        vault.deposit(user1, depositData);
+
+        data.stateAfter = vault.getVaultSnapshot();
+        uint256 sharesAfter = vault.balanceOf(user1);
+        uint256 invariantAfter = vault.totalAssets() * 1e18 / vault.totalSupply();
+
+        assertApproxEqAbs(
+            data.navIncreaseEth(), depositAmount, NAV_DECREASE_TOLERANCE, "NAV should increase by the deposit amount"
+        );
+
+        assertEq(invariantAfter, invariantBefore, "Invariant should not change");
+        assertApproxEqAbs(
+            vault.totalSupply(),
+            data.stateBefore.vaultTotalSupply + expectedShares,
+            NAV_DECREASE_TOLERANCE,
+            "Total supply should increase by expected amount"
+        );
+
+        assertApproxEqAbs(
+            sharesAfter,
+            sharesBefore + expectedShares,
+            NAV_DECREASE_TOLERANCE,
+            "User's shares should increase by expected amount"
+        );
+    }
+
+    function testFuzzDepositComplex(uint256 depositAmount, uint256 donateAmount, uint256 warpTime) public {
+        depositAmount = bound(depositAmount, 0.02 ether, 10_000_000 ether);
+        donateAmount = bound(donateAmount, 0.02 ether, 5_000_000 ether);
+        warpTime = bound(warpTime, 0, 10 * 365 days);
+
+        _setupStandardDeposit();
+
+        uint256 targetHealthFactor = vault.targetHealthFactor();
+
+        _donateAaveLstATokensToVault(user1, donateAmount);
+
+        vm.deal(user1, depositAmount);
+
+        vm.prank(user1);
+        WETH.deposit{value: depositAmount}();
+
+        vm.prank(user1);
+        WETH.transfer(address(this), depositAmount);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        vm.warp(block.timestamp + warpTime);
+
+        uint256 healthFactorAfterWarp = vault.getHealthFactor();
+
+        vault.deposit(user1, depositData);
+
+        if (healthFactorAfterWarp > targetHealthFactor) {
+            assertEq(vault.getHealthFactor(), targetHealthFactor, "Health factor should be at target after deposit");
+        } else {
+            assertGe(
+                vault.getHealthFactor(), healthFactorAfterWarp, "Health factor should be above previous after deposit"
+            );
+        }
     }
 
     function _invalidDeposit(uint256 amount) external {

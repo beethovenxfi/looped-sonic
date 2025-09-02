@@ -62,4 +62,6 @@ interface IAaveProtocolDataProvider {
         external
         view
         returns (address aTokenAddress, address stableDebtTokenAddress, address variableDebtTokenAddress);
+
+    function getReserveCaps(address asset) external view returns (uint256 borrowCap, uint256 supplyCap);
 }
