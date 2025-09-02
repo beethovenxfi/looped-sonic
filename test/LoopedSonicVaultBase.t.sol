@@ -32,7 +32,7 @@ contract LoopedSonicVaultBase is Test {
     uint256 public constant MAX_LOOP_ITERATIONS = 10;
 
     function setUp() public virtual {
-        vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
+        vm.createSelectFork("https://rpc.soniclabs.com", 45497827);
 
         vault = new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
         WETH.approve(address(vault), type(uint256).max);
