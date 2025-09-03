@@ -331,6 +331,37 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         );
     }
 
+    function testDepositSharesIssuedAtNewRateAfterDonation() public {
+        _setupStandardDeposit();
+
+        uint256 depositAmount = 100 ether;
+
+        _dealWethToAddress(address(this), depositAmount * 2);
+
+        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+
+        uint256 sharesBefore = vault.deposit(user1, depositData);
+
+        // Before the donation, shares should be issued at 1:1 to the deposit amount, as the rate is 1
+        assertApproxEqAbs(
+            sharesBefore, depositAmount, NAV_DECREASE_TOLERANCE, "Shares should be equal to deposit amount"
+        );
+
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+        uint256 donateAmount = vault.convertToShares(snapshotBefore.netAssetValueInEth());
+
+        _dealWethToAddress(address(this), snapshotBefore.netAssetValueInEth());
+
+        _donateAaveLstATokensToVault(user1, donateAmount);
+
+        uint256 sharesAfter = vault.deposit(user1, depositData);
+
+        // we've now doubled the value of each share, so depositing the same amount should result in half as many shares issued
+        assertApproxEqAbs(
+            sharesAfter, sharesBefore / 2, NAV_DECREASE_TOLERANCE, "Shares should be half of the previous amount"
+        );
+    }
+
     function testSmallDepositAboveTargetHealthFactor() public {
         _setupStandardDeposit();
 
@@ -436,6 +467,10 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         assertApproxEqAbs(rateAfter, rateBefore, 1e5, "Rate should not change");
         assertApproxEqAbs(invariantAfter, invariantBefore, 1e5, "Invariant should not change");
+
+        // Rounding should always be in the correct direction
+        assertGe(rateAfter, rateBefore, "Rate should never decrease");
+        assertGe(invariantAfter, invariantBefore, "Invariant should never decrease");
 
         if (healthFactorAfterWarp > targetHealthFactor) {
             assertEq(vault.getHealthFactor(), targetHealthFactor, "Health factor should be at target after deposit");

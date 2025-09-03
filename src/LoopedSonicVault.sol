@@ -148,7 +148,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
      * @param receiver The address that will receive the shares.
      * @param callbackData Arbitrary calldata forwarded to the callback.
      */
-    function deposit(address receiver, bytes calldata callbackData) external nonReentrant whenInitialized acquireLock {
+    function deposit(address receiver, bytes calldata callbackData)
+        external
+        nonReentrant
+        whenInitialized
+        acquireLock
+        returns (uint256 shares)
+    {
         require(!depositsPaused, DepositsPaused());
         require(receiver != address(0), ZeroAddress());
 
@@ -168,7 +174,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        uint256 shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
+        shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
@@ -462,6 +468,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
     function lstToEth(uint256 lstAmount) public view returns (uint256) {
         return LST.convertToAssets(lstAmount);
+    }
+
+    function getInvariant() public view returns (uint256) {
+        return totalAssets() * 1e18 / totalSupply();
     }
 
     // ---------------------------------------------------------------------

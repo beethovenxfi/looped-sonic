@@ -231,5 +231,11 @@ contract LoopedSonicVaultBase is Test {
         vm.stopPrank();
     }
 
+    function _dealWethToAddress(address user, uint256 amount) internal {
+        vm.deal(user, amount);
+        vm.prank(user);
+        WETH.deposit{value: amount}();
+    }
+
     function emptyCallback() external {}
 }

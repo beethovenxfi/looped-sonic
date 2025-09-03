@@ -179,7 +179,7 @@ interface ILoopedSonicVault {
      * @param receiver The address to receive the minted vault shares
      * @param callbackData Arbitrary calldata forwarded to the callback for deposit logic
      */
-    function deposit(address receiver, bytes calldata callbackData) external;
+    function deposit(address receiver, bytes calldata callbackData) external returns (uint256 shares);
 
     /**
      * @notice Withdraws assets from the vault by burning shares via atomic callback execution
