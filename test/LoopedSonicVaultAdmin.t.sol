@@ -4,7 +4,7 @@ pragma solidity ^0.8.30;
 import {LoopedSonicVaultBase} from "./LoopedSonicVaultBase.t.sol";
 import {console} from "forge-std/console.sol";
 
-contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
+contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
     function setUp() public override {
         super.setUp();
     }
@@ -251,5 +251,108 @@ contract LoopedSonicVaultPauseTest is LoopedSonicVaultBase {
 
         // Now withdraw should work
         _withdrawFromVault(user1, sharesToRedeem, "");
+    }
+
+    function testSetTargetHealthFactor() public {
+        uint256 newHealthFactor = 1.5e18;
+
+        assertNotEq(newHealthFactor, vault.targetHealthFactor(), "New target health factor should be different");
+
+        vm.prank(admin);
+        vault.setTargetHealthFactor(newHealthFactor);
+
+        assertEq(vault.targetHealthFactor(), newHealthFactor, "Target health factor should be updated");
+    }
+
+    function testSetTargetHealthFactorMinimumValidation() public {
+        uint256 belowMinimum = vault.MIN_TARGET_HEALTH_FACTOR() - 0.1e18;
+
+        vm.expectRevert(abi.encodeWithSignature("TargetHealthFactorTooLow()"));
+        vm.prank(admin);
+        vault.setTargetHealthFactor(belowMinimum);
+    }
+
+    function testSetTargetHealthFactorAtMinimum() public {
+        uint256 minimumHealthFactor = vault.MIN_TARGET_HEALTH_FACTOR();
+
+        vm.prank(admin);
+        vault.setTargetHealthFactor(minimumHealthFactor);
+
+        assertEq(vault.targetHealthFactor(), minimumHealthFactor, "Should accept minimum health factor");
+    }
+
+    function testOnlyAdminCanSetTargetHealthFactor() public {
+        uint256 newHealthFactor = 1.5e18;
+
+        vm.expectRevert();
+        vm.prank(user1);
+        vault.setTargetHealthFactor(newHealthFactor);
+
+        vm.expectRevert();
+        vm.prank(operator);
+        vault.setTargetHealthFactor(newHealthFactor);
+
+        vm.prank(admin);
+        vault.setTargetHealthFactor(newHealthFactor);
+        assertEq(vault.targetHealthFactor(), newHealthFactor, "Admin should be able to set target health factor");
+    }
+
+    function testSetAllowedUnwindSlippagePercent() public {
+        uint256 newSlippage = 0.01e18; // 1%
+
+        assertNotEq(
+            newSlippage, vault.allowedUnwindSlippagePercent(), "New allowed unwind slippage percent should be different"
+        );
+
+        vm.prank(admin);
+        vault.setAllowedUnwindSlippagePercent(newSlippage);
+
+        assertEq(vault.allowedUnwindSlippagePercent(), newSlippage, "Allowed unwind slippage percent should be updated");
+    }
+
+    function testSetAllowedUnwindSlippagePercentMaximumValidation() public {
+        uint256 aboveMaximum = vault.MAX_UNWIND_SLIPPAGE_PERCENT() + 0.01e18;
+
+        vm.expectRevert(abi.encodeWithSignature("SlippageTooHigh()"));
+        vm.prank(admin);
+        vault.setAllowedUnwindSlippagePercent(aboveMaximum);
+    }
+
+    function testSetAllowedUnwindSlippagePercentAtMaximum() public {
+        uint256 maximumSlippage = vault.MAX_UNWIND_SLIPPAGE_PERCENT();
+
+        vm.prank(admin);
+        vault.setAllowedUnwindSlippagePercent(maximumSlippage);
+
+        assertEq(vault.allowedUnwindSlippagePercent(), maximumSlippage, "Should accept maximum slippage");
+    }
+
+    function testSetAllowedUnwindSlippagePercentZero() public {
+        uint256 zeroSlippage = 0;
+
+        vm.prank(admin);
+        vault.setAllowedUnwindSlippagePercent(zeroSlippage);
+
+        assertEq(vault.allowedUnwindSlippagePercent(), zeroSlippage, "Should accept zero slippage");
+    }
+
+    function testOnlyAdminCanSetAllowedUnwindSlippagePercent() public {
+        uint256 newSlippage = 0.01e18;
+
+        vm.expectRevert();
+        vm.prank(user1);
+        vault.setAllowedUnwindSlippagePercent(newSlippage);
+
+        vm.expectRevert();
+        vm.prank(operator);
+        vault.setAllowedUnwindSlippagePercent(newSlippage);
+
+        vm.prank(admin);
+        vault.setAllowedUnwindSlippagePercent(newSlippage);
+        assertEq(
+            vault.allowedUnwindSlippagePercent(),
+            newSlippage,
+            "Admin should be able to set allowed unwind slippage percent"
+        );
     }
 }
