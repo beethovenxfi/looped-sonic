@@ -135,10 +135,14 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         WETH.transferFrom(user1, address(this), depositAmount);
 
-        bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, "");
+        bytes memory depositData = abi.encodeWithSelector(this._emptyDepositCallback.selector);
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NavIncreaseBelowMin.selector));
         vault.deposit(user1, depositData);
+    }
+
+    function _emptyDepositCallback() external {
+        // do nothing
     }
 
     function testDepositSuccessWithNavIncreaseAboveMin() public {

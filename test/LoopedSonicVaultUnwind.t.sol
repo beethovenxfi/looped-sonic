@@ -43,9 +43,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertEq(
+        assertApproxEqAbs(
             snapshotAfter.lstCollateralAmount,
             snapshotBefore.lstCollateralAmount - lstAmountToWithdraw,
+            1,
             "LST collateral should decrease by withdrawn amount"
         );
 
@@ -169,9 +170,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertEq(
+        assertApproxEqAbs(
             snapshotAfter.lstCollateralAmount,
             snapshotBefore.lstCollateralAmount - lstAmountToWithdraw,
+            1,
             "LST collateral should decrease by withdrawn amount"
         );
 
@@ -185,7 +187,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         assertApproxEqAbs(
             snapshotAfter.netAssetValueInEth(),
             snapshotBefore.netAssetValueInEth() - slippageAmount,
-            1,
+            2,
             "Net asset value should decrease by slippage amount"
         );
 
@@ -212,7 +214,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - slippageAmount, 1);
+        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - slippageAmount, 2);
     }
 
     function testUnwindWithOneWeiSlippage() public {

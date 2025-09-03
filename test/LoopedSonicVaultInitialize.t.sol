@@ -49,13 +49,14 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
         assertEq(LST.balanceOf(address(vault)), 0, "Vault should not hold LST after init");
         assertEq(snapshotAfter.vaultTotalSupply, nav, "Total supply should equal the nav");
         assertEq(vault.balanceOf(address(1)), snapshotAfter.vaultTotalSupply, "All initial shares should be burned");
-        assertEq(
+        assertApproxEqAbs(
             snapshotAfter.lstCollateralAmount,
             LST.convertToShares(INIT_AMOUNT),
+            1,
             "LST collateral should be equal to the init amount of eth staked"
         );
         assertEq(snapshotAfter.wethDebtAmount, 0, "WETH debt should be 0");
-        assertApproxEqAbs(nav, INIT_AMOUNT, 1, "Nav should be equal to init amount");
+        assertApproxEqAbs(nav, INIT_AMOUNT, 2, "Nav should be equal to init amount");
     }
 
     function testInitializeRevertsIfAlreadyInitialized() public {

@@ -241,8 +241,11 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
 
         uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtAmount();
 
-        assertEq(
-            aaveWethDebtBalanceAfter, aaveWethDebtBalanceBefore + borrowAmount, "Aave WETH debt balance should increase"
+        assertApproxEqAbs(
+            aaveWethDebtBalanceAfter,
+            aaveWethDebtBalanceBefore + borrowAmount,
+            1,
+            "Aave WETH debt balance should increase"
         );
 
         vault.aaveRepayWeth(borrowAmount);

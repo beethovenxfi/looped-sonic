@@ -121,13 +121,13 @@ contract VaultSnapshotTest is Test {
         assertEq(availableBorrows, 0);
     }
 
-    /// forge-config: default.allow_internal_expect_revert = true
     function testAvailableBorrowsInEthWithExcessiveDebt() public {
         uint256 maxBorrow = snapshot.lstCollateralAmountInEth * snapshot.ltv / 10_000;
         snapshot.wethDebtAmount = maxBorrow + 10e18;
 
-        vm.expectRevert();
-        snapshot.availableBorrowsInEth();
+        uint256 availableBorrows = snapshot.availableBorrowsInEth();
+
+        assertEq(availableBorrows, 0);
     }
 
     function testLiquidationThresholdScaled18() public view {
@@ -233,8 +233,9 @@ contract VaultSnapshotTest is Test {
             result = data.availableBorrowsInEth();
             assertEq(result, 0);
         } else if (collateralInEth * ltv / 10000 < debtAmount) {
-            vm.expectRevert();
             result = data.availableBorrowsInEth();
+
+            assertEq(result, 0);
         } else {
             result = data.availableBorrowsInEth();
             uint256 maxBorrow = collateralInEth * ltv / 10000;
