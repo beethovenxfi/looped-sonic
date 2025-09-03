@@ -426,7 +426,16 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
 
         uint256 healthFactorAfterWarp = vault.getHealthFactor();
 
+        uint256 invariantBefore = vault.totalAssets() * 1e18 / vault.totalSupply();
+        uint256 rateBefore = vault.getRate();
+
         vault.deposit(user1, depositData);
+
+        uint256 invariantAfter = vault.totalAssets() * 1e18 / vault.totalSupply();
+        uint256 rateAfter = vault.getRate();
+
+        assertApproxEqAbs(rateAfter, rateBefore, 1e5, "Rate should not change");
+        assertApproxEqAbs(invariantAfter, invariantBefore, 1e5, "Invariant should not change");
 
         if (healthFactorAfterWarp > targetHealthFactor) {
             assertEq(vault.getHealthFactor(), targetHealthFactor, "Health factor should be at target after deposit");
