@@ -83,7 +83,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
     constructor(address _weth, address _lst, address _aavePool, uint8 _eModeCategoryId, address _admin)
         ERC20("Beets Aave Looped Sonic", "lS")
     {
-        require(_weth != address(0) && _lst != address(0) && _aavePool != address(0), ZeroAddress());
+        require(
+            _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0), ZeroAddress()
+        );
 
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
@@ -219,7 +221,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
 
         require(snapshotBefore.lstCollateralAmount == 0, CollateralNotZero());
-        require(snapshotBefore.wethDebtAmount == 0, DebtNotZero());
 
         pullWeth(INIT_AMOUNT);
 
@@ -347,9 +348,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(amount > 0, ZeroAmount());
         require(to != address(0), ZeroAddress());
 
-        IERC20(address(WETH)).safeTransfer(to, amount);
-
         _decrementWethSessionBalance(amount);
+
+        IERC20(address(WETH)).safeTransfer(to, amount);
 
         emit SendWeth(allowedCaller, to, amount);
     }
@@ -358,9 +359,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         require(amount > 0, ZeroAmount());
         require(to != address(0), ZeroAddress());
 
-        IERC20(address(LST)).safeTransfer(to, amount);
-
         _decrementLstSessionBalance(amount);
+
+        IERC20(address(LST)).safeTransfer(to, amount);
 
         emit SendLst(allowedCaller, to, amount);
     }

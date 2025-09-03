@@ -154,7 +154,6 @@ interface ILoopedSonicVault {
     error InvalidCollateralAfterWithdraw();
     error InvalidNavAfterWithdraw();
     error AlreadyInitialized();
-    error DebtNotZero();
     error CollateralNotZero();
     error UnwindsPaused();
     error UnwindAmountBelowMin();

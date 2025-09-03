@@ -101,4 +101,28 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
 
         vm.stopPrank();
     }
+
+    function testZeroAddressOnCreationReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        new LoopedSonicVault(address(0), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        new LoopedSonicVault(address(WETH), address(0), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        new LoopedSonicVault(address(WETH), address(LST), address(0), E_MODE_CATEGORY_ID, admin);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(0));
+    }
+
+    function testInitRevertsWhenCollateralNotZero() public {
+        vm.startPrank(user1);
+        WETH.approve(address(vault), INIT_AMOUNT * 2);
+
+        _donateAaveLstATokensToVault(user1, INIT_AMOUNT);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.CollateralNotZero.selector));
+        vault.initialize();
+    }
 }

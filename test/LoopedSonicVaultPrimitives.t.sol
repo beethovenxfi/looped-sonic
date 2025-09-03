@@ -275,6 +275,58 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         );
     }
 
+    function testAaveRepayWethRevertsWhenInsufficientSessionBalance() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData =
+            abi.encodeWithSelector(this._testAaveRepayWethRevertsWhenInsufficientSessionBalanceCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testAaveRepayWethRevertsWhenInsufficientSessionBalanceCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientWETHSessionBalance.selector));
+        vault.aaveRepayWeth(10 ether);
+    }
+
+    function testSendWethRevertsWhenInsufficientSessionBalance() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData =
+            abi.encodeWithSelector(this._testSendWethRevertsWhenInsufficientSessionBalanceCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testSendWethRevertsWhenInsufficientSessionBalanceCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientWETHSessionBalance.selector));
+        vault.sendWeth(user1, 10 ether);
+    }
+
+    function testSendLstRevertsWhenInsufficientSessionBalance() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData =
+            abi.encodeWithSelector(this._testSendLstRevertsWhenInsufficientSessionBalanceCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testSendLstRevertsWhenInsufficientSessionBalanceCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientLSTSessionBalance.selector));
+        vault.sendLst(user1, 10 ether);
+    }
+
+    function testAaveSupplyLstRevertsWhenInsufficientSessionBalance() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData =
+            abi.encodeWithSelector(this._testAaveSupplyLstRevertsWhenInsufficientSessionBalanceCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testAaveSupplyLstRevertsWhenInsufficientSessionBalanceCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientLSTSessionBalance.selector));
+        vault.aaveSupplyLst(10 ether);
+    }
+
     function testNotAllowedWhenLocked() public {
         _setupStandardDeposit();
 
@@ -310,6 +362,92 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         vault.aaveWithdrawLst(1 ether);
 
         vm.stopPrank();
+    }
+
+    function testRevertsWhenNotLocked() public {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.pullWeth(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.sendWeth(user1, 1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.sendLst(user1, 1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.pullLst(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.aaveBorrowWeth(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.aaveRepayWeth(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.aaveSupplyLst(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotLocked.selector));
+        vault.aaveWithdrawLst(1 ether);
+    }
+
+    function testRevertsWhenZeroAmount() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData = abi.encodeWithSelector(this._testRevertsWhenZeroAmountCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testRevertsWhenZeroAmountCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.pullWeth(0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.sendWeth(user1, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.sendLst(user1, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.pullLst(0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.aaveBorrowWeth(0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.aaveRepayWeth(0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.aaveSupplyLst(0);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAmount.selector));
+        vault.aaveWithdrawLst(0);
+    }
+
+    function testRevertsWhenZeroAddress() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData = abi.encodeWithSelector(this._testRevertsWhenZeroAddressCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testRevertsWhenZeroAddressCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        vault.sendWeth(address(0), 1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        vault.sendLst(address(0), 1 ether);
+    }
+
+    function testStakeWethRevertsWhenLessThanMin() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData = abi.encodeWithSelector(this._testStakeWethRevertsWhenLessThanMinCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testStakeWethRevertsWhenLessThanMinCallback() external {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.AmountLessThanMin.selector));
+        vault.stakeWeth(0.001 ether);
     }
 
     receive() external payable {}
