@@ -175,30 +175,15 @@ contract LoopedSonicVaultBase is Test {
         return new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
     }
 
-    function _getLstPrice() internal view returns (uint256) {
-        return vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle().getAssetPrice(address(LST));
-    }
-
-    function _getEthPrice() internal view returns (uint256) {
-        return vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle().getAssetPrice(address(WETH));
-    }
-
-    function _convertBaseAmountToLst(uint256 amount) internal view returns (uint256) {
-        return amount * 1e18 / _getLstPrice();
-    }
-
-    function _convertBaseAmountToEth(uint256 amount) internal view returns (uint256) {
-        return amount * 1e18 / _getEthPrice();
-    }
-
     function _attemptReentrancy() public {
-        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
         vault.deposit(user1, abi.encodeWithSelector(this.emptyCallback.selector));
 
-        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
         vault.withdraw(1e18, abi.encodeWithSelector(this.emptyCallback.selector));
 
-        vm.expectRevert(abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
         vault.unwind(1e18, address(this), abi.encodeWithSelector(this.emptyCallback.selector));
     }
 

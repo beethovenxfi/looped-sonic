@@ -234,6 +234,22 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1, 1);
     }
 
+    function testUnwindWithTooMuchSlippage() public {
+        _setupStandardDeposit();
+
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+        uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10; // Unwind 10%
+        uint256 slippagePercent = vault.allowedUnwindSlippagePercent();
+        uint256 slippageAmount = LST.convertToAssets(lstAmountToWithdraw) * slippagePercent / 1e18 + 1e18;
+
+        bytes memory liquidationData =
+            abi.encodeWithSelector(this._liquidateLstWithSlippage.selector, lstAmountToWithdraw, slippageAmount);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotEnoughWETH.selector));
+        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+    }
+
     function testUnwindRevertsWithInvalidContract() public {
         _setupStandardDeposit();
 

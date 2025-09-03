@@ -450,5 +450,12 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         vault.stakeWeth(0.001 ether);
     }
 
+    function testSendingEthToVaultReverts() public {
+        _setupStandardDeposit();
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.SenderNotWethContract.selector));
+        payable(address(vault)).transfer(1 ether);
+    }
+
     receive() external payable {}
 }

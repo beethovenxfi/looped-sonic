@@ -21,7 +21,6 @@ import {ISonicStaking} from "./interfaces/ISonicStaking.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IAavePool} from "./interfaces/IAavePool.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {VaultSnapshot} from "./libraries/VaultSnapshot.sol";
 import {VaultSnapshotComparison} from "./libraries/VaultSnapshotComparison.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
@@ -32,7 +31,7 @@ import {console} from "forge-std/console.sol";
  * @title LoopedSonicVault
  * @notice Vault that lets users create a leveraged stS position on Aave.
  */
-contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonicVault {
+contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     using SafeERC20 for IERC20;
     using Address for address;
     using VaultSnapshot for VaultSnapshot.Data;
@@ -152,7 +151,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
      */
     function deposit(address receiver, bytes calldata callbackData)
         external
-        nonReentrant
         whenInitialized
         acquireLock
         returns (uint256 shares)
@@ -187,12 +185,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
      * @param sharesToRedeem Amount of vault shares to burn.
      * @param callbackData   Arbitrary calldata forwarded to the callback.
      */
-    function withdraw(uint256 sharesToRedeem, bytes calldata callbackData)
-        external
-        nonReentrant
-        whenInitialized
-        acquireLock
-    {
+    function withdraw(uint256 sharesToRedeem, bytes calldata callbackData) external whenInitialized acquireLock {
         require(!withdrawsPaused, WithdrawsPaused());
         require(sharesToRedeem >= MIN_SHARES_TO_REDEEM, NotEnoughShares());
 
@@ -215,7 +208,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
         emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
     }
 
-    function initialize() external nonReentrant acquireLock {
+    function initialize() external acquireLock {
         require(!isInitialized, AlreadyInitialized());
 
         VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
@@ -247,7 +240,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ReentrancyGuard, ILoopedSonic
 
     function unwind(uint256 lstAmountToWithdraw, address contractToCall, bytes calldata data)
         external
-        nonReentrant
         onlyRole(OPERATOR_ROLE)
         whenInitialized
         acquireLock
