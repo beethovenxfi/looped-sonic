@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {console} from "forge-std/console.sol";
 import {LoopedSonicVaultBase} from "./LoopedSonicVaultBase.t.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 
 contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
     function testPullWeth() public {
@@ -272,6 +273,43 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         assertEq(
             aaveWethDebtBalanceAfter, aaveWethDebtBalanceBefore - borrowAmount, "Aave WETH debt balance should decrease"
         );
+    }
+
+    function testNotAllowedWhenLocked() public {
+        _setupStandardDeposit();
+
+        bytes memory callbackData = abi.encodeWithSelector(this._testNotAllowedWhenLockedCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testNotAllowedWhenLockedCallback() external {
+        vm.startPrank(user1);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.pullWeth(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.sendWeth(user1, 1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.sendLst(user1, 1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.pullLst(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.aaveBorrowWeth(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.aaveRepayWeth(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.aaveSupplyLst(1 ether);
+
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotAllowed.selector));
+        vault.aaveWithdrawLst(1 ether);
+
+        vm.stopPrank();
     }
 
     receive() external payable {}
