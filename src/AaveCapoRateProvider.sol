@@ -16,7 +16,7 @@ contract AaveCapoRateProvider is IAaveCapoRateProvider {
     }
 
     function getRate() public view returns (uint256) {
-        if (PRICE_CAP_ADAPTER.isCapped()) {
+        if (isCapped()) {
             return getMaxRate();
         }
 
@@ -24,7 +24,7 @@ contract AaveCapoRateProvider is IAaveCapoRateProvider {
     }
 
     function convertToAssets(uint256 shares) external view returns (uint256) {
-        if (PRICE_CAP_ADAPTER.isCapped()) {
+        if (isCapped()) {
             return shares * getMaxRate() / 1e18;
         }
 
@@ -32,7 +32,7 @@ contract AaveCapoRateProvider is IAaveCapoRateProvider {
     }
 
     function convertToShares(uint256 assets) external view returns (uint256) {
-        if (PRICE_CAP_ADAPTER.isCapped()) {
+        if (isCapped()) {
             return assets * 1e18 / getMaxRate();
         }
 
@@ -46,5 +46,9 @@ contract AaveCapoRateProvider is IAaveCapoRateProvider {
         uint256 snapshotTimestamp = PRICE_CAP_ADAPTER.getSnapshotTimestamp();
 
         return snapshotRatio + maxRatioGrowthPerSecond * (block.timestamp - snapshotTimestamp);
+    }
+
+    function isCapped() public view returns (bool) {
+        return PRICE_CAP_ADAPTER.isCapped();
     }
 }
