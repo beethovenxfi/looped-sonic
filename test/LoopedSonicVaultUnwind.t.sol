@@ -91,8 +91,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindRevertsWhenNotInitialized() public {
         // Create a new vault that's not initialized
-        LoopedSonicVault uninitializedVault =
-            new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        LoopedSonicVault uninitializedVault = _getUninitializedVault();
 
         vm.startPrank(admin);
         uninitializedVault.grantRole(uninitializedVault.OPERATOR_ROLE(), operator);

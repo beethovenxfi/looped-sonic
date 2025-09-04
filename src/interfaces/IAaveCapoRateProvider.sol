@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+interface IAaveCapoRateProvider {
+    function getRate() external view returns (uint256);
+    function convertToAssets(uint256 shares) external view returns (uint256);
+    function convertToShares(uint256 assets) external view returns (uint256);
+}

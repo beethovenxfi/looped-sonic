@@ -104,16 +104,24 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
 
     function testZeroAddressOnCreationReverts() public {
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
-        new LoopedSonicVault(address(0), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        new LoopedSonicVault(
+            address(0), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+        );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
-        new LoopedSonicVault(address(WETH), address(0), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        new LoopedSonicVault(
+            address(WETH), address(0), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+        );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
-        new LoopedSonicVault(address(WETH), address(LST), address(0), E_MODE_CATEGORY_ID, admin);
+        new LoopedSonicVault(
+            address(WETH), address(LST), address(0), E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+        );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
-        new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(0));
+        new LoopedSonicVault(
+            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), address(0)
+        );
     }
 
     function testInitRevertsWhenCollateralNotZero() public {

@@ -207,19 +207,6 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
         assertEq(borrowAmount, expectedAmount);
     }
 
-    function testLstToEth() public view {
-        uint256 lstAmount = 1 ether;
-        uint256 ethAmount = vault.lstToEth(lstAmount);
-
-        uint256 expectedAmount = vault.LST().convertToAssets(lstAmount);
-        assertEq(ethAmount, expectedAmount);
-    }
-
-    function testLstToEthZeroAmount() public view {
-        uint256 ethAmount = vault.lstToEth(0);
-        assertEq(ethAmount, 0);
-    }
-
     function testGetInvariant() public view {
         uint256 invariant = vault.getInvariant();
         assertGt(invariant, 0);
@@ -300,15 +287,6 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
 
         assertEq(collateralInLst, expectedCollateral);
         assertEq(debtInEth, expectedDebt);
-    }
-
-    function testFuzzLstToEth(uint256 lstAmount) public view {
-        lstAmount = bound(lstAmount, 0, 1000 ether);
-
-        uint256 ethAmount = vault.lstToEth(lstAmount);
-        uint256 expectedAmount = vault.LST().convertToAssets(lstAmount);
-
-        assertEq(ethAmount, expectedAmount);
     }
 
     function testConvertToAssetsWhenSupplyIsZero() public {

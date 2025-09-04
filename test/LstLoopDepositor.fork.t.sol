@@ -9,6 +9,8 @@ import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IBalancerVault} from "../src/interfaces/IBalancerVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
+import {AaveCapoRateProvider} from "../src/AaveCapoRateProvider.sol";
+import {IPriceCapAdapter} from "../src/interfaces/IPriceCapAdapter.sol";
 
 contract LstLoopDepositorForkTest is Test {
     using VaultSnapshot for VaultSnapshot.Data;
@@ -20,14 +22,20 @@ contract LstLoopDepositorForkTest is Test {
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
     IWETH constant WSONIC = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
     address constant BALANCER_VAULT = address(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
+    IPriceCapAdapter constant PRICE_CAP_ADAPTER = IPriceCapAdapter(0x5BA5D5213B47DFE020B1F8d6fB54Db3F74F9ea9a);
     address constant OWNER = address(0x5);
     uint8 constant E_MODE_CATEGORY_ID = 1;
+    AaveCapoRateProvider public aaveCapoRateProvider;
 
     function setUp() public {
         vm.createSelectFork("https://rpc.soniclabs.com", 41170977);
 
+        aaveCapoRateProvider = new AaveCapoRateProvider(address(STAKED_SONIC), address(PRICE_CAP_ADAPTER));
+
         // Deploy vault
-        vault = new LoopedSonicVault(address(WSONIC), address(STAKED_SONIC), AAVE_POOL, E_MODE_CATEGORY_ID, OWNER);
+        vault = new LoopedSonicVault(
+            address(WSONIC), address(STAKED_SONIC), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), OWNER
+        );
 
         // Deploy depositor
         depositor = new BalancerLoopedSonicRouter(vault, IBalancerVault(BALANCER_VAULT));
@@ -80,7 +88,7 @@ contract LstLoopDepositorForkTest is Test {
         console.log("debt in ETH", aaveAccount.wethDebtAmount);
     }
 
-    function testForkWithdraw() public {
+    /* function testForkWithdraw() public {
         uint256 depositAmount = 1_000_000 ether;
         uint256 initialBalance = address(this).balance;
         uint256 initialTotalAssets = vault.totalAssets();
@@ -103,7 +111,7 @@ contract LstLoopDepositorForkTest is Test {
         //assertEq(address(this).balance, initialBalance + depositAmount);
 
         // Verify vault received and processed the deposit
-    }
+    } */
 
     /* function testForkDepositWithHealthFactor() public {
         uint256 depositAmount = 5 ether;

@@ -25,6 +25,7 @@ import {VaultSnapshot} from "./libraries/VaultSnapshot.sol";
 import {VaultSnapshotComparison} from "./libraries/VaultSnapshotComparison.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {ILoopedSonicVault} from "./interfaces/ILoopedSonicVault.sol";
+import {IAaveCapoRateProvider} from "./interfaces/IAaveCapoRateProvider.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -68,6 +69,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     bool public withdrawsPaused = false;
     bool public unwindsPaused = false;
 
+    IAaveCapoRateProvider public aaveCapoRateProvider;
+
     // ---------------------------------------------------------------------
     // Flash‑accounting operation state (transient; zeroed every execution)
     // ---------------------------------------------------------------------
@@ -79,11 +82,18 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // ---------------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------------
-    constructor(address _weth, address _lst, address _aavePool, uint8 _eModeCategoryId, address _admin)
-        ERC20("Beets Aave Looped Sonic", "lS")
-    {
+    constructor(
+        address _weth,
+        address _lst,
+        address _aavePool,
+        uint8 _eModeCategoryId,
+        address _aaveCapoRateProvider,
+        address _admin
+    ) ERC20("Beets Aave Looped Sonic", "lS") {
         require(
-            _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0), ZeroAddress()
+            _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0)
+                && _aaveCapoRateProvider != address(0),
+            ZeroAddress()
         );
 
         WETH = IWETH(_weth);
@@ -95,6 +105,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         WETH_VARIABLE_DEBT_TOKEN = IERC20(wethVariableDebtToken);
 
         AAVE_E_MODE_CATEGORY_ID = _eModeCategoryId;
+
+        aaveCapoRateProvider = IAaveCapoRateProvider(_aaveCapoRateProvider);
 
         // Approve Aave once for both tokens
         IERC20(_weth).approve(_aavePool, type(uint256).max);
@@ -384,7 +396,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     function getVaultSnapshot() public view returns (VaultSnapshot.Data memory data) {
         data.wethDebtAmount = getAaveWethDebtAmount();
         data.lstCollateralAmount = getAaveLstCollateralAmount();
-        data.lstCollateralAmountInEth = lstToEth(data.lstCollateralAmount);
+        data.lstCollateralAmountInEth = aaveCapoRateProvider.convertToAssets(data.lstCollateralAmount);
 
         (data.ltv, data.liquidationThreshold,) = AAVE_POOL.getEModeCategoryCollateralConfig(AAVE_E_MODE_CATEGORY_ID);
 
@@ -458,10 +470,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
-    function lstToEth(uint256 lstAmount) public view returns (uint256) {
-        return LST.convertToAssets(lstAmount);
-    }
-
     function getInvariant() public view returns (uint256) {
         return totalAssets() * 1e18 / totalSupply();
     }
@@ -481,6 +489,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     {
         require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, SlippageTooHigh());
         allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
+    }
+
+    function setAaveCapoRateProvider(address _aaveCapoRateProvider) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        aaveCapoRateProvider = IAaveCapoRateProvider(_aaveCapoRateProvider);
     }
 
     function pause() external onlyRole(OPERATOR_ROLE) {

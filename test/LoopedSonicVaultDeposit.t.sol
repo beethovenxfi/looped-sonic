@@ -78,8 +78,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
     }
 
     function testDepositRevertsWhenNotInitialized() public {
-        LoopedSonicVault uninitializedVault =
-            new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        LoopedSonicVault uninitializedVault = _getUninitializedVault();
 
         bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, 1 ether, "");
 

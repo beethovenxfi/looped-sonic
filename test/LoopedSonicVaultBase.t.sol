@@ -11,6 +11,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IPriceCapAdapter} from "../src/interfaces/IPriceCapAdapter.sol";
+import {AaveCapoRateProvider} from "../src/AaveCapoRateProvider.sol";
 
 contract LoopedSonicVaultBase is Test {
     using VaultSnapshot for VaultSnapshot.Data;
@@ -19,8 +21,12 @@ contract LoopedSonicVaultBase is Test {
     ISonicStaking constant LST = ISonicStaking(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955);
     address constant AAVE_POOL = address(0x5362dBb1e601abF3a4c14c22ffEdA64042E5eAA3);
     IWETH constant WETH = IWETH(0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38);
+    address constant LST_ADMIN = address(0x6Daeb8BB06A7CF3475236C6c567029d333455E38);
+    address constant LST_OPERATOR = address(0x6840Bd91417373Af296cc263e312DfEBcAb494ae);
+    IPriceCapAdapter constant PRICE_CAP_ADAPTER = IPriceCapAdapter(0x5BA5D5213B47DFE020B1F8d6fB54Db3F74F9ea9a);
     uint8 constant E_MODE_CATEGORY_ID = 1;
     LoopedSonicVault public vault;
+    AaveCapoRateProvider public aaveCapoRateProvider;
 
     address public admin = makeAddr("admin");
     address public operator = makeAddr("operator");
@@ -34,7 +40,11 @@ contract LoopedSonicVaultBase is Test {
     function setUp() public virtual {
         vm.createSelectFork("https://rpc.soniclabs.com", 45497827);
 
-        vault = new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        aaveCapoRateProvider = new AaveCapoRateProvider(address(LST), address(PRICE_CAP_ADAPTER));
+
+        vault = new LoopedSonicVault(
+            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+        );
         WETH.approve(address(vault), type(uint256).max);
         LST.approve(address(vault), type(uint256).max);
 
@@ -172,7 +182,9 @@ contract LoopedSonicVaultBase is Test {
     }
 
     function _getUninitializedVault() internal returns (LoopedSonicVault) {
-        return new LoopedSonicVault(address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, admin);
+        return new LoopedSonicVault(
+            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+        );
     }
 
     function _attemptReentrancy() public {

@@ -54,10 +54,10 @@ interface ISonicStaking is IERC20 {
     /// @param maxSize Maximum number of requests to return
     /// @param reverseOrder Whether to return in reverse order
     /// @return Array of withdrawal requests
-    function getUserWithdraws(
-        address user,
-        uint256 skip,
-        uint256 maxSize,
-        bool reverseOrder
-    ) external view returns (WithdrawRequest[] memory);
+    function getUserWithdraws(address user, uint256 skip, uint256 maxSize, bool reverseOrder)
+        external
+        view
+        returns (WithdrawRequest[] memory);
+
+    function donate() external payable;
 }

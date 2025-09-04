@@ -14,7 +14,6 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
 
     address public constant USDC = 0x29219dd400f2Bf60E5a23d13Be72B486D4038894;
     address public constant USDC_WHALE = 0xA4E471dbfe8C95d4c44f520b19CEe436c01c3267;
-    address public constant LST_ADMIN = 0x6Daeb8BB06A7CF3475236C6c567029d333455E38;
 
     function testDonatingATokenIncreasesCollateralAndNav() public {
         _setupStandardDeposit();
