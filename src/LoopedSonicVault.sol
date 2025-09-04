@@ -492,6 +492,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     }
 
     function setAaveCapoRateProvider(address _aaveCapoRateProvider) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_aaveCapoRateProvider != address(0), ZeroAddress());
+
         aaveCapoRateProvider = IAaveCapoRateProvider(_aaveCapoRateProvider);
     }
 

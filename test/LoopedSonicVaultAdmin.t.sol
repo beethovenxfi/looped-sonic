@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {LoopedSonicVaultBase} from "./LoopedSonicVaultBase.t.sol";
 import {console} from "forge-std/console.sol";
+import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 
 contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
     function setUp() public override {
@@ -354,5 +355,45 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
             newSlippage,
             "Admin should be able to set allowed unwind slippage percent"
         );
+    }
+
+    // =============================================================================
+    // Aave Capo Rate Provider Tests
+    // =============================================================================
+
+    function testSetAaveCapoRateProvider() public {
+        address newProvider = address(0x123456789);
+        address initialProvider = address(vault.aaveCapoRateProvider());
+
+        assertNotEq(newProvider, initialProvider, "New provider should be different from initial");
+
+        vm.prank(admin);
+        vault.setAaveCapoRateProvider(newProvider);
+
+        assertEq(address(vault.aaveCapoRateProvider()), newProvider, "Aave capo rate provider should be updated");
+    }
+
+    function testOnlyAdminCanSetAaveCapoRateProvider() public {
+        address newProvider = address(0x123456789);
+
+        vm.expectRevert();
+        vm.prank(user1);
+        vault.setAaveCapoRateProvider(newProvider);
+
+        vm.expectRevert();
+        vm.prank(operator);
+        vault.setAaveCapoRateProvider(newProvider);
+
+        vm.prank(admin);
+        vault.setAaveCapoRateProvider(newProvider);
+        assertEq(
+            address(vault.aaveCapoRateProvider()), newProvider, "Admin should be able to set aave capo rate provider"
+        );
+    }
+
+    function testSetAaveCapoRateProviderToZeroAddress() public {
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        vault.setAaveCapoRateProvider(address(0));
     }
 }
