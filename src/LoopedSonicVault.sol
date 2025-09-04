@@ -136,12 +136,17 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         locked = true;
         allowedCaller = msg.sender;
+        uint256 rateBefore = aaveCapoRateProvider.getRate();
 
         _;
 
         // You must clear your session balance by the end of any operation that acquires a lock
         require(_wethSessionBalance == 0, WethSessionBalanceNotZero());
         require(_lstSessionBalance == 0, LstSessionBalanceNotZero());
+
+        // If the LST rate changes during the lock, the vault would incorrectly attribute the NAV increase/decrease
+        // to this operation. We strictly disallow it.
+        require(rateBefore == aaveCapoRateProvider.getRate(), LstRateChanged());
 
         locked = false;
         allowedCaller = address(0);

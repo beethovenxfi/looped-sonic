@@ -95,4 +95,42 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         // computed health factor is accurate to 7 decimals since aave's base price uses 8 decimals
         assertApproxEqAbs(healthFactor, vault.getHealthFactor(), 1e11, "Health factor should be equal");
     }
+
+    function testOperationRevertsWithLstRateChange() public {
+        _setupStandardDeposit();
+
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+        uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10;
+
+        bytes memory liquidationData =
+            abi.encodeWithSelector(this._unwindAndChangeLstRate.selector, lstAmountToWithdraw);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LstRateChanged.selector));
+        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+    }
+
+    function _unwindAndChangeLstRate(uint256 lstAmount) external returns (uint256 wethAmount) {
+        // We simulate liqudation at the redemption rate
+        wethAmount = LST.convertToAssets(lstAmount);
+
+        // burn the LST
+        LST.transfer(address(1), lstAmount);
+
+        vm.prank(operator);
+        WETH.approve(address(vault), type(uint256).max);
+
+        vm.deal(address(this), wethAmount);
+        WETH.deposit{value: wethAmount}();
+
+        // transfer the WETH to the operator
+        WETH.transfer(address(operator), wethAmount);
+
+        uint256 donateAmount = 1_000 ether;
+
+        vm.deal(LST_OPERATOR, donateAmount);
+
+        vm.prank(LST_OPERATOR);
+        LST.donate{value: donateAmount}();
+    }
 }

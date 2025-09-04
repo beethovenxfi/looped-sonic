@@ -168,6 +168,7 @@ interface ILoopedSonicVault {
     error SlippageTooHigh();
     error ZeroShares();
     error SharesExceedTotalSupply();
+    error LstRateChanged();
 
     // ---------------------------------------------------------------------
     // Primary vault operations
