@@ -193,9 +193,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         data.stateBefore = getVaultSnapshot();
 
-        // Burn shares up‑front for withdrawals
-        // The caller must have the shares, this is an additional erc20 transfer, but avoids a second layer of
-        // of permissions
+        // Burn shares up‑front for withdrawals . The caller must have the shares (ie: the router), this is an
+        // additional erc20 transfer, but avoids a second layer of permissions
         _burn(msg.sender, sharesToRedeem);
 
         (msg.sender).functionCall(callbackData);
