@@ -223,28 +223,6 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
         assertEq(invariantAfter, invariantBefore);
     }
 
-    /* function testViewFunctionsWhenLocked() public {
-        bytes memory callbackData = abi.encodeWithSelector(this._testViewFunctionsWhenLockedCallback.selector);
-
-        vm.prank(user1);
-        WETH.approve(address(this), 1 ether);
-
-        WETH.transferFrom(user1, address(this), 1 ether);
-
-        vault.deposit(user1, callbackData);
-    }
-
-    function _testViewFunctionsWhenLockedCallback() external {
-        _attemptReadOnlyReentrancy();
-
-        (uint256 wethSessionBalance, uint256 lstSessionBalance) = vault.getSessionBalances();
-        assertGt(wethSessionBalance, 0);
-        assertGt(lstSessionBalance, 0);
-
-        uint256 lstAmount = vault.stakeWeth(wethSessionBalance);
-        vault.aaveSupplyLst(lstAmount);
-    } */
-
     function testViewFunctionConsistency() public view {
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
 

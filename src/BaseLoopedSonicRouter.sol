@@ -14,9 +14,14 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     using VaultSnapshot for VaultSnapshot.Data;
     using SafeERC20 for IERC20;
 
+    error NotVault();
+    error NotEnoughLst();
+    error NotAavePool();
+    error BadInitiator();
+
     LoopedSonicVault public immutable VAULT;
 
-    uint256 public constant MAX_LOOP_ITERATIONS = 10;
+    uint256 public constant MAX_LOOP_ITERATIONS = 20;
 
     constructor(LoopedSonicVault _vault) {
         VAULT = _vault;
@@ -29,7 +34,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     function convertLstToWeth(uint256 lstCollateralAmount, bytes memory data) internal virtual returns (uint256);
 
     modifier onlyVault() {
-        require(msg.sender == address(VAULT), "Not vault");
+        require(msg.sender == address(VAULT), NotVault());
         _;
     }
 
@@ -42,7 +47,6 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     function depositCallback(uint256 initialAssets) external onlyVault {
         uint256 currentAssets = initialAssets;
         uint256 totalCollateral = 0;
-        uint256 totalDebt = 0;
 
         VAULT.pullWeth(initialAssets);
 
@@ -52,7 +56,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
             // The router implementation must ensure that the amount of LST received is at least the amount of
             // shares that would be received if the WETH was staked
-            require(lstAmount >= minLstAmount, "LST amount out too low");
+            require(lstAmount >= minLstAmount, NotEnoughLst());
 
             VAULT.aaveSupplyLst(lstAmount);
 
@@ -65,8 +69,6 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
             }
 
             VAULT.aaveBorrowWeth(borrowAmount);
-
-            totalDebt += borrowAmount;
             currentAssets = borrowAmount;
         }
     }
@@ -105,8 +107,8 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         address initiator,
         bytes calldata params
     ) external returns (bool) {
-        require(msg.sender == address(VAULT.AAVE_POOL()), "NOT_POOL");
-        require(initiator == address(this), "BAD_INITIATOR");
+        require(msg.sender == address(VAULT.AAVE_POOL()), NotAavePool());
+        require(initiator == address(this), BadInitiator());
 
         WithdrawParams memory withdrawParams = abi.decode(params, (WithdrawParams));
 

@@ -212,13 +212,13 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         bytes memory testData = abi.encodeWithSelector(this._createLstSessionBalance.selector);
         bytes memory depositData = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, testData);
 
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LSTSessionBalanceNotZero.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LstSessionBalanceNotZero.selector));
         vault.deposit(user1, depositData);
 
         bytes memory testData2 = abi.encodeWithSelector(this._createWethSessionBalance.selector);
         bytes memory depositData2 = abi.encodeWithSelector(this._depositCallback.selector, depositAmount, testData2);
 
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.WETHSessionBalanceNotZero.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.WethSessionBalanceNotZero.selector));
         vault.deposit(user1, depositData2);
     }
 

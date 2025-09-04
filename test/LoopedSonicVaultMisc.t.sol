@@ -83,8 +83,6 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
     function testComputedHealthFactorMatchesAaveValue() public {
         _setupStandardDeposit();
 
-        VaultSnapshot.Data memory state = vault.getVaultSnapshot();
-
         (
             uint256 totalCollateralBase,
             uint256 totalDebtBase,
@@ -95,6 +93,6 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         ) = vault.AAVE_POOL().getUserAccountData(address(vault));
 
         // computed health factor is accurate to 7 decimals since aave's base price uses 8 decimals
-        assertApproxEqAbs(healthFactor, state.healthFactor(), 1e11, "Health factor should be equal");
+        assertApproxEqAbs(healthFactor, vault.getHealthFactor(), 1e11, "Health factor should be equal");
     }
 }

@@ -26,12 +26,7 @@ import {VaultSnapshotComparison} from "./libraries/VaultSnapshotComparison.sol";
 import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {ILoopedSonicVault} from "./interfaces/ILoopedSonicVault.sol";
 import {IAaveCapoRateProvider} from "./interfaces/IAaveCapoRateProvider.sol";
-import {console} from "forge-std/console.sol";
 
-/**
- * @title LoopedSonicVault
- * @notice Vault that lets users create a leveraged stS position on Aave.
- */
 contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -140,8 +135,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _;
 
         // You must clear your session balance by the end of any operation that acquires a lock
-        require(_wethSessionBalance == 0, WETHSessionBalanceNotZero());
-        require(_lstSessionBalance == 0, LSTSessionBalanceNotZero());
+        require(_wethSessionBalance == 0, WethSessionBalanceNotZero());
+        require(_lstSessionBalance == 0, LstSessionBalanceNotZero());
 
         locked = false;
         allowedCaller = address(0);
@@ -158,8 +153,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // ---------------------------------------------------------------------
 
     /**
-     * @param receiver The address that will receive the shares.
-     * @param callbackData Arbitrary calldata forwarded to the callback.
+     * @inheritdoc ILoopedSonicVault
      */
     function deposit(address receiver, bytes calldata callbackData)
         external
@@ -194,8 +188,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     }
 
     /**
-     * @param sharesToRedeem Amount of vault shares to burn.
-     * @param callbackData   Arbitrary calldata forwarded to the callback.
+     * @inheritdoc ILoopedSonicVault
      */
     function withdraw(uint256 sharesToRedeem, bytes calldata callbackData) external whenInitialized acquireLock {
         require(!withdrawsPaused, WithdrawsPaused());
@@ -219,6 +212,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function initialize() external acquireLock {
         require(!isInitialized, AlreadyInitialized());
 
@@ -249,6 +245,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit Initialize(msg.sender, address(1), sharesToMint, sharesToMint);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function unwind(uint256 lstAmountToWithdraw, address contractToCall, bytes calldata data)
         external
         onlyRole(OPERATOR_ROLE)
@@ -276,7 +275,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         allowedCaller = msg.sender;
 
-        require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWETH());
+        require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWeth());
 
         // To avoid special casing the unwind flow, we pull the WETH from the operator despite having sent the LST
         // to the contractToCall. This is a misdirection, but it is limited to the operator, a granted role.
@@ -292,6 +291,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // Vault primitives (ONLY callable during an active lock)
     // ---------------------------------------------------------------------
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function stakeWeth(uint256 amount) public whenLocked returns (uint256 lstAmount) {
         require(amount >= MIN_LST_DEPOSIT, AmountLessThanMin());
 
@@ -307,6 +309,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit StakeWeth(allowedCaller, amount, lstAmount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function aaveSupplyLst(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
@@ -317,6 +322,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit AaveSupplyLst(allowedCaller, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function aaveWithdrawLst(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
@@ -327,6 +335,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit AaveWithdrawLst(allowedCaller, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function aaveBorrowWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
@@ -337,6 +348,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit AaveBorrowWeth(allowedCaller, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function aaveRepayWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
@@ -347,6 +361,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit AaveRepayWeth(allowedCaller, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function sendWeth(address to, uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
         require(to != address(0), ZeroAddress());
@@ -358,6 +375,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit SendWeth(allowedCaller, to, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function sendLst(address to, uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
         require(to != address(0), ZeroAddress());
@@ -369,6 +389,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit SendLst(allowedCaller, to, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function pullWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
@@ -379,6 +402,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit PullWeth(allowedCaller, msg.sender, amount);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function pullLst(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
 
@@ -393,6 +419,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // View functions
     // ---------------------------------------------------------------------
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getVaultSnapshot() public view returns (VaultSnapshot.Data memory data) {
         data.wethDebtAmount = getAaveWethDebtAmount();
         data.lstCollateralAmount = getAaveLstCollateralAmount();
@@ -403,10 +432,16 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.vaultTotalSupply = totalSupply();
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function totalAssets() public view whenNotLocked returns (uint256) {
         return getVaultSnapshot().netAssetValueInEth();
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
         uint256 totalShares = totalSupply();
@@ -418,6 +453,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return (shares * assetsTotal) / totalShares;
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function convertToShares(uint256 assets) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
         uint256 totalShares = totalSupply();
@@ -429,11 +467,17 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return (assets * totalShares) / assetsTotal;
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getRate() public view whenNotLocked returns (uint256) {
         // The rate is the amount of assets that 1 share is worth
         return convertToAssets(1 ether);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getCollateralAndDebtForShares(uint256 shares)
         public
         view
@@ -449,27 +493,45 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         debtInEth = data.proportionalDebtInEth(shares);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getSessionBalances() public view returns (uint256 wethSessionBalance, uint256 lstSessionBalance) {
         wethSessionBalance = _wethSessionBalance;
         lstSessionBalance = _lstSessionBalance;
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getAaveLstCollateralAmount() public view returns (uint256) {
         return LST_A_TOKEN.balanceOf(address(this));
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getAaveWethDebtAmount() public view returns (uint256) {
         return WETH_VARIABLE_DEBT_TOKEN.balanceOf(address(this));
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getHealthFactor() public view returns (uint256) {
         return getVaultSnapshot().healthFactor();
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getBorrowAmountForLoopInEth() public view returns (uint256) {
         return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getInvariant() public view returns (uint256) {
         return totalAssets() * 1e18 / totalSupply();
     }
@@ -478,11 +540,17 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // Admin functions
     // ---------------------------------------------------------------------
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setTargetHealthFactor(uint256 _targetHealthFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, TargetHealthFactorTooLow());
         targetHealthFactor = _targetHealthFactor;
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
@@ -491,26 +559,41 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setAaveCapoRateProvider(address _aaveCapoRateProvider) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_aaveCapoRateProvider != address(0), ZeroAddress());
 
         aaveCapoRateProvider = IAaveCapoRateProvider(_aaveCapoRateProvider);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function pause() external onlyRole(OPERATOR_ROLE) {
         _setDepositsPaused(true);
         _setWithdrawsPaused(true);
         _setUnwindsPaused(true);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setDepositsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setDepositsPaused(_paused);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setWithdrawsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setWithdrawsPaused(_paused);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setUnwindsPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _setUnwindsPaused(_paused);
     }
@@ -549,13 +632,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     }
 
     function _decrementWethSessionBalance(uint256 amount) private {
-        require(_wethSessionBalance >= amount, InsufficientWETHSessionBalance());
+        require(_wethSessionBalance >= amount, InsufficientWethSessionBalance());
 
         _wethSessionBalance -= amount;
     }
 
     function _decrementLstSessionBalance(uint256 amount) private {
-        require(_lstSessionBalance >= amount, InsufficientLSTSessionBalance());
+        require(_lstSessionBalance >= amount, InsufficientLstSessionBalance());
 
         _lstSessionBalance -= amount;
     }

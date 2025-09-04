@@ -4,10 +4,11 @@ pragma solidity ^0.8.30;
 import {VaultSnapshot} from "../libraries/VaultSnapshot.sol";
 
 /**
- * @title ILoopedSonicVault
- * @notice Interface for LoopedSonicVault - an ERC20 vault that creates leveraged LST positions on Aave
- *         via flash-loan-style atomic execution flows. Supports WETH + LST as managed assets with
- *         modular primitives callable only within operation mode.
+ * @notice LoopedSonicVault is an ERC20 vault token that implements a looped LST strategy combining stS with Aave v3
+ *   on the Sonic network. The vault uses a flash-accounting execution flow similar to Uni V4 and Balncer V3. This
+ *   allows for custom router implementations for managing the deposit and withdrawal of assets, allowing for
+ *   flexibility in sourcing the best rate when looping and unwinding. The vault maintains strict safety invariants
+ *   during an operation.
  */
 interface ILoopedSonicVault {
     // ---------------------------------------------------------------------
@@ -142,8 +143,8 @@ interface ILoopedSonicVault {
     error NotLocked();
     error NotAllowed();
     error Locked();
-    error WETHSessionBalanceNotZero();
-    error LSTSessionBalanceNotZero();
+    error WethSessionBalanceNotZero();
+    error LstSessionBalanceNotZero();
     error NotInitialized();
     error DepositsPaused();
     error NavIncreaseBelowMin();
@@ -157,11 +158,11 @@ interface ILoopedSonicVault {
     error CollateralNotZero();
     error UnwindsPaused();
     error UnwindAmountBelowMin();
-    error NotEnoughWETH();
+    error NotEnoughWeth();
     error ZeroAmount();
     error AmountLessThanMin();
-    error InsufficientWETHSessionBalance();
-    error InsufficientLSTSessionBalance();
+    error InsufficientWethSessionBalance();
+    error InsufficientLstSessionBalance();
     error SenderNotWethContract();
     error TargetHealthFactorTooLow();
     error SlippageTooHigh();
@@ -347,6 +348,27 @@ interface ILoopedSonicVault {
      */
     function getAaveWethDebtAmount() external view returns (uint256);
 
+    /**
+     * @notice Gets the current health factor of the vault's Aave position
+     * @dev Returns the health factor calculated from collateral and debt amounts
+     * @return The current health factor (18 decimals)
+     */
+    function getHealthFactor() external view returns (uint256);
+
+    /**
+     * @notice Gets the optimal borrow amount for looping based on target health factor
+     * @dev Calculates how much WETH can be borrowed while maintaining target health factor
+     * @return The optimal borrow amount in ETH terms
+     */
+    function getBorrowAmountForLoopInEth() external view returns (uint256);
+
+    /**
+     * @notice Gets the vault's share price invariant (total assets per total supply)
+     * @dev Used for monitoring vault share price stability
+     * @return The invariant value (18 decimals)
+     */
+    function getInvariant() external view returns (uint256);
+
     // ---------------------------------------------------------------------
     // Admin functions
     // ---------------------------------------------------------------------
@@ -364,6 +386,13 @@ interface ILoopedSonicVault {
      * @param _allowedUnwindSlippagePercent The new allowed slippage (18 decimals)
      */
     function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent) external;
+
+    /**
+     * @notice Sets the Aave Capo rate provider address (owner only)
+     * @dev Updates the rate provider used for LST to ETH conversions
+     * @param _aaveCapoRateProvider The new rate provider contract address
+     */
+    function setAaveCapoRateProvider(address _aaveCapoRateProvider) external;
 
     /**
      * @notice Pauses all vault operations (operator role only)

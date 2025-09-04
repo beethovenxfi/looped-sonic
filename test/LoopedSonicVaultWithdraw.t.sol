@@ -158,7 +158,7 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
         bytes memory withdrawData =
             abi.encodeWithSelector(this._withdrawCallback.selector, user1, collateralInLst, debtInEth, testData);
 
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LSTSessionBalanceNotZero.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LstSessionBalanceNotZero.selector));
         vault.withdraw(sharesToRedeem, withdrawData);
 
         vm.prank(user1);
@@ -170,7 +170,7 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
         bytes memory withdrawData2 =
             abi.encodeWithSelector(this._withdrawCallback.selector, user1, collateralInLst, debtInEth, testData2);
 
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.WETHSessionBalanceNotZero.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.WethSessionBalanceNotZero.selector));
         vault.withdraw(sharesToRedeem, withdrawData2);
     }
 

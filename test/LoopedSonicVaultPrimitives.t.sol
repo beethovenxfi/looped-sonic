@@ -284,7 +284,7 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
     }
 
     function _testAaveRepayWethRevertsWhenInsufficientSessionBalanceCallback() external {
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientWETHSessionBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientWethSessionBalance.selector));
         vault.aaveRepayWeth(10 ether);
     }
 
@@ -297,7 +297,7 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
     }
 
     function _testSendWethRevertsWhenInsufficientSessionBalanceCallback() external {
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientWETHSessionBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientWethSessionBalance.selector));
         vault.sendWeth(user1, 10 ether);
     }
 
@@ -310,7 +310,7 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
     }
 
     function _testSendLstRevertsWhenInsufficientSessionBalanceCallback() external {
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientLSTSessionBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientLstSessionBalance.selector));
         vault.sendLst(user1, 10 ether);
     }
 
@@ -323,7 +323,7 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
     }
 
     function _testAaveSupplyLstRevertsWhenInsufficientSessionBalanceCallback() external {
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientLSTSessionBalance.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.InsufficientLstSessionBalance.selector));
         vault.aaveSupplyLst(10 ether);
     }
 

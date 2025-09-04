@@ -245,7 +245,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
             abi.encodeWithSelector(this._liquidateLstWithSlippage.selector, lstAmountToWithdraw, slippageAmount);
 
         vm.prank(operator);
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotEnoughWETH.selector));
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotEnoughWeth.selector));
         vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
     }
 
