@@ -28,6 +28,9 @@ contract AaveCapoRateProvider is IAaveCapoRateProvider {
             return shares * getMaxRate() / 1e18;
         }
 
+        // Since the rate is not capped, we know that the rate returned by the CAP adapter is the exact LST rate.
+        // As such, we can safely use the LST.convertToAssets function to convert shares to assets, avoiding additional
+        // precision loss.
         return LST.convertToAssets(shares);
     }
 
@@ -36,6 +39,9 @@ contract AaveCapoRateProvider is IAaveCapoRateProvider {
             return assets * 1e18 / getMaxRate();
         }
 
+        // Since the rate is not capped, we know that the rate returned by the CAP adapter is the exact LST rate.
+        // As such, we can safely use the LST.convertToShares function to convert assets to shares, avoiding additional
+        // precision loss.
         return LST.convertToShares(assets);
     }
 

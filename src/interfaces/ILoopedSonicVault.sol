@@ -389,7 +389,7 @@ interface ILoopedSonicVault {
 
     /**
      * @notice Sets the Aave Capo rate provider address (owner only)
-     * @dev Updates the rate provider used for LST to ETH conversions
+     * @dev Updates the rate provider used for pricing LST collateral
      * @param _aaveCapoRateProvider The new rate provider contract address
      */
     function setAaveCapoRateProvider(address _aaveCapoRateProvider) external;

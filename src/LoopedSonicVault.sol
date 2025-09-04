@@ -64,6 +64,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     bool public withdrawsPaused = false;
     bool public unwindsPaused = false;
 
+    // The stS Aave market uses a correlated asset price oracle (CAPO). To avoid the precision loss of using the base
+    // currency (8 decimals), we read the exact rate from the CAP feed and use this rate to price the LST collateral
+    // in ETH. This ensures that if the rate growth of stS exceeds the max ratio, the vault will not overprice it's LST
+    // collateral. While unlikely, in the event that the Aave market changes it's oracle, we can update the rate
+    //  provider.
     IAaveCapoRateProvider public aaveCapoRateProvider;
 
     // ---------------------------------------------------------------------
