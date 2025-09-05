@@ -18,6 +18,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     error NotEnoughLst();
     error NotAavePool();
     error BadInitiator();
+    error AmountOutBelowMin();
 
     LoopedSonicVault public immutable VAULT;
 
@@ -132,11 +133,11 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
         VAULT.sendLst(address(this), params.collateralInLst);
 
-        uint256 redemptionAmount = VAULT.LST().convertToAssets(params.collateralInLst);
-
         uint256 wethOut = convertLstToWeth(params.collateralInLst, params.convertLstToWethData);
 
         uint256 amountToRecipient = wethOut - params.debtInEth - flashLoanFee;
+
+        require(amountToRecipient >= params.minWethAmountOut, AmountOutBelowMin());
 
         IERC20(address(VAULT.WETH())).safeTransfer(params.recipient, amountToRecipient);
     }
