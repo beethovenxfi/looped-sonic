@@ -309,7 +309,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         _decrementWethSessionBalance(amount);
 
-        // the LST only accepts native ETH, so we unwrap WETH prior to calling deposit
+        // the LST only accepts native ETH, so we unwrap prior to calling deposit
         WETH.withdraw(amount);
 
         lstAmount = LST.deposit{value: amount}();
