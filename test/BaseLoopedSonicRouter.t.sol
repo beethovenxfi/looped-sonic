@@ -63,7 +63,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
         router.deposit{value: 1 ether}();
     }
 
-    function testRouterWithdrawSuccess() public {
+    function testRouterWithdrawWithFlashLoanSuccess() public {
         uint256 shares = _setupStandardDeposit();
         (uint256 collateralInLst, uint256 debtInEth) = vault.getCollateralAndDebtForShares(shares);
         uint256 wethSwappedAmount = vault.LST().convertToAssets(collateralInLst);
@@ -83,6 +83,31 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
 
         uint256 wethBalanceAfter = WETH.balanceOf(user1);
         assertApproxEqAbs(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut, 1);
+        // Any rounding should be in favor of the vault
+        assertLe(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut);
+    }
+
+    function testRouterWithdrawSuccess() public {
+        uint256 shares = _setupStandardDeposit() / 20;
+        (uint256 collateralInLst, uint256 debtInEth) = vault.getCollateralAndDebtForShares(shares);
+        uint256 wethSwappedAmount = vault.LST().convertToAssets(collateralInLst);
+
+        uint256 expexctedWethAmountOut = vault.convertToAssets(shares);
+
+        uint256 wethBalanceBefore = WETH.balanceOf(user1);
+
+        vm.prank(user1);
+        vault.approve(address(router), shares);
+
+        bytes memory convertData = abi.encode(wethSwappedAmount);
+
+        vm.prank(user1);
+        router.withdraw(shares, 0, convertData);
+
+        uint256 wethBalanceAfter = WETH.balanceOf(user1);
+        assertApproxEqAbs(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut, 2);
+        // Any rounding should be in favor of the vault
+        assertLe(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut);
     }
 
     function testWithdrawInsufficientShares() public {
@@ -130,6 +155,10 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(BaseLoopedSonicRouter.NotVault.selector));
         router.withdrawWithFlashLoanCallback(params, 0);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(BaseLoopedSonicRouter.NotVault.selector));
+        router.withdrawCallback(params);
     }
 
     function testExecuteOperationOnlyAavePool() public {

@@ -110,6 +110,8 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     }
 
     function withdrawCallback(WithdrawParams memory params) external onlyVault {
+        // This will revert if the withdraw would bring the health factor below 1.0.
+        // For large withdrawals, use withdrawWithFlashLoan.
         VAULT.aaveWithdrawLst(params.collateralInLst);
 
         VAULT.sendLst(address(this), params.collateralInLst);
