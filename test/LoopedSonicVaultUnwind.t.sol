@@ -36,7 +36,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         uint256 expectedWethAmount = LST.convertToAssets(lstAmountToWithdraw);
 
         vm.expectEmit(true, true, true, false);
-        emit ILoopedSonicVault.Unwind(operator, lstAmountToWithdraw, expectedWethAmount);
+        emit ILoopedSonicVault.Unwind(operator, lstAmountToWithdraw, expectedWethAmount, 0);
 
         vm.prank(operator);
         vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
@@ -162,7 +162,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         uint256 expectedWethAmount = LST.convertToAssets(lstAmountToWithdraw) - slippageAmount;
 
         vm.expectEmit(true, true, true, false);
-        emit ILoopedSonicVault.Unwind(operator, lstAmountToWithdraw, expectedWethAmount);
+        emit ILoopedSonicVault.Unwind(operator, lstAmountToWithdraw, expectedWethAmount, 0);
 
         vm.prank(operator);
         vault.unwind(lstAmountToWithdraw, address(this), liquidationData);

@@ -182,7 +182,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         _mint(receiver, shares);
 
-        emit Deposit(msg.sender, receiver, shares, navIncreaseEth);
+        emit Deposit(msg.sender, receiver, shares, navIncreaseEth, _convertToAssets(1e18));
     }
 
     /**
@@ -207,7 +207,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(data.checkDebtAfterWithdraw(sharesToRedeem), InvalidDebtAfterWithdraw());
         require(data.checkCollateralAfterWithdraw(sharesToRedeem), InvalidCollateralAfterWithdraw());
 
-        emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
+        emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth(), _convertToAssets(1e18));
     }
 
     /**
@@ -282,7 +282,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         aaveRepayWeth(wethAmount);
 
-        emit Unwind(msg.sender, lstAmountToWithdraw, wethAmount);
+        emit Unwind(msg.sender, lstAmountToWithdraw, wethAmount, _convertToAssets(1e18));
     }
 
     // ---------------------------------------------------------------------
@@ -438,10 +438,27 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     }
 
     /**
+     * @notice Internal function without the whenNotLocked modifier
+     * @return The total assets managed by the vault in ETH terms
+     */
+    function _totalAssets() internal view returns (uint256) {
+        return getVaultSnapshot().netAssetValueInEth();
+    }
+
+    /**
      * @inheritdoc ILoopedSonicVault
      */
     function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
-        uint256 assetsTotal = totalAssets();
+        return _convertToAssets(shares);
+    }
+
+    /**
+     * @notice Internal function without the whenNotLocked modifier
+     * @param shares The amount of vault shares to convert
+     * @return The equivalent amount of underlying assets in ETH terms
+     */
+    function _convertToAssets(uint256 shares) internal view  returns (uint256) {
+        uint256 assetsTotal = _totalAssets();
         uint256 totalShares = totalSupply();
 
         if (assetsTotal == 0 || totalShares == 0) {
@@ -450,6 +467,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         return (shares * assetsTotal) / totalShares;
     }
+
 
     /**
      * @inheritdoc ILoopedSonicVault
