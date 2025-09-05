@@ -1,18 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-/**
- *
- *  LoopedSonicVault – ERC20 Vault Token with Flash‑Accounting Execution Flow (OpenZeppelin‑based)
- *  -----------------------------------------------------------------------------------
- *  ▸ Issues ERC20 vault shares (inherits OpenZeppelin ERC20)
- *  ▸ Supports WETH + wstETH as managed assets
- *  ▸ Provides modular primitives (stake/borrow/repay/etc.) callable only inside an
- *    atomic flash‑loan‑style callback ("operation mode")
- *  ▸ Integrates with Lido for staking and Aave for lending/borrowing on Arbitrum
- *  ▸ Enforces robust invariants (Aave HF ≥ 1, no share‑price decrease, etc.)
- *
- */
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
