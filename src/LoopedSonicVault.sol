@@ -542,7 +542,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getInvariant() public view returns (uint256) {
+    function getInvariant() public view whenNotLocked returns (uint256) {
         return totalAssets() * 1e18 / totalSupply();
     }
 
