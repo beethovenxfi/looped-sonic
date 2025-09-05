@@ -39,7 +39,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         WETH.transferFrom(user1, address(this), depositAmount);
 
         vm.expectEmit(true, true, false, false);
-        emit ILoopedSonicVault.Deposit(address(this), user1, 0, 0);
+        emit ILoopedSonicVault.Deposit(address(this), user1, 0, 0, 0);
 
         vault.deposit(user1, depositData);
 
@@ -407,7 +407,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         WETH.transferFrom(user1, address(this), depositAmount);
 
         vm.expectEmit(true, true, false, false);
-        emit ILoopedSonicVault.Deposit(address(this), user1, 0, 0);
+        emit ILoopedSonicVault.Deposit(address(this), user1, 0, 0, 0);
 
         vault.deposit(user1, depositData);
 

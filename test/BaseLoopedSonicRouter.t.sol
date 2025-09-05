@@ -118,7 +118,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
         router.withdrawWithFlashLoan(shares, 0, abi.encode(1 ether));
     }
 
-    function testWithdrawMinAmountNotMet() public {
+    function testWithdrawFlashloanMinAmountNotMet() public {
         uint256 depositAmount = 10 ether;
         vm.deal(user1, depositAmount);
 
@@ -140,6 +140,25 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(BaseLoopedSonicRouter.AmountOutBelowMin.selector));
         router.withdrawWithFlashLoan(shares, expexctedWethAmountOut + 1, convertData);
+    }
+
+    function testWithdrawMinAmountNotMet() public {
+        uint256 shares = _setupStandardDeposit() / 20;
+        (uint256 collateralInLst, uint256 debtInEth) = vault.getCollateralAndDebtForShares(shares);
+        uint256 wethSwappedAmount = vault.LST().convertToAssets(collateralInLst);
+
+        uint256 expexctedWethAmountOut = vault.convertToAssets(shares);
+
+        uint256 wethBalanceBefore = WETH.balanceOf(user1);
+
+        vm.prank(user1);
+        vault.approve(address(router), shares);
+
+        bytes memory convertData = abi.encode(wethSwappedAmount);
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(BaseLoopedSonicRouter.AmountOutBelowMin.selector));
+        router.withdraw(shares, expexctedWethAmountOut + 1, convertData);
     }
 
     function testWithdrawCallbackOnlyVault() public {
