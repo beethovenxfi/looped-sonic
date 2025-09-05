@@ -10,7 +10,7 @@ contract MockLoopedSonicRouter is BaseLoopedSonicRouter, Test {
 
     constructor(LoopedSonicVault _vault) BaseLoopedSonicRouter(_vault) {}
 
-    function convertWethToLst(uint256 wethAmount) internal override returns (uint256) {
+    function convertWethSessionBalanceToLstSessionBalance(uint256 wethAmount) internal override returns (uint256) {
         if (lstAmountOutOverride > 0) {
             return lstAmountOutOverride;
         }

@@ -31,7 +31,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         IERC20(address(VAULT.LST())).approve(address(VAULT), type(uint256).max);
     }
 
-    function convertWethToLst(uint256 wethAmount) internal virtual returns (uint256);
+    function convertWethSessionBalanceToLstSessionBalance(uint256 wethAmount) internal virtual returns (uint256);
     function convertLstToWeth(uint256 lstCollateralAmount, bytes memory data) internal virtual returns (uint256);
 
     modifier onlyVault() {
@@ -53,7 +53,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
         for (uint256 i = 0; i < MAX_LOOP_ITERATIONS && currentAssets > 0; i++) {
             uint256 minLstAmount = VAULT.LST().convertToShares(currentAssets);
-            uint256 lstAmount = convertWethToLst(currentAssets);
+            uint256 lstAmount = convertWethSessionBalanceToLstSessionBalance(currentAssets);
 
             // The router implementation must ensure that the amount of LST received is at least the amount of
             // shares that would be received if the WETH was staked
@@ -83,7 +83,60 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         bytes convertLstToWethData;
     }
 
+    /**
+     * @notice burns shares, repay debt and return remaining collateral to the caller
+     * @param amountShares The amount of shares to burn
+     * @param minWethAmountOut The minimum amount of WETH to receive
+     * @param convertLstToWethData abi encoded data used by the router implementation to convert the LST to WETH
+     * @dev This path will only work for small withdrawals relative to the vault size. If the number of shares is too large
+     * the withdraw from aave will bring the health factor below 1.0 and revert.
+     */
     function withdraw(uint256 amountShares, uint256 minWethAmountOut, bytes memory convertLstToWethData) external {
+        // The vault will burn shares from this contract, so we transfer them here immediately
+        IERC20(address(VAULT)).safeTransferFrom(msg.sender, address(this), amountShares);
+
+        (uint256 collateralInLst, uint256 debtInEth) = VAULT.getCollateralAndDebtForShares(amountShares);
+
+        WithdrawParams memory params = WithdrawParams({
+            recipient: msg.sender,
+            amountShares: amountShares,
+            minWethAmountOut: minWethAmountOut,
+            collateralInLst: collateralInLst,
+            debtInEth: debtInEth,
+            convertLstToWethData: convertLstToWethData
+        });
+
+        VAULT.withdraw(amountShares, abi.encodeCall(BaseLoopedSonicRouter.withdrawCallback, (params)));
+    }
+
+    function withdrawCallback(WithdrawParams memory params) external onlyVault {
+        VAULT.aaveWithdrawLst(params.collateralInLst);
+
+        VAULT.sendLst(address(this), params.collateralInLst);
+
+        uint256 wethOut = convertLstToWeth(params.collateralInLst, params.convertLstToWethData);
+
+        VAULT.pullWeth(params.debtInEth);
+
+        VAULT.aaveRepayWeth(params.debtInEth);
+
+        uint256 amountToRecipient = wethOut - params.debtInEth;
+
+        require(amountToRecipient >= params.minWethAmountOut, AmountOutBelowMin());
+
+        IERC20(address(VAULT.WETH())).safeTransfer(params.recipient, amountToRecipient);
+    }
+
+    /**
+     * @notice burns shares, repay debt and return remaining collateral to the caller
+     * @param amountShares The amount of shares to burn
+     * @param minWethAmountOut The minimum amount of WETH to receive
+     * @param convertLstToWethData abi encoded data used by the router implementation to convert the LST to WETH
+     * @dev This path takes a flash loan from Aave, it can facilitate larger withdrawals, but is subject to the 5 BPS fee.
+     */
+    function withdrawWithFlashLoan(uint256 amountShares, uint256 minWethAmountOut, bytes memory convertLstToWethData)
+        external
+    {
         // The vault will burn shares from this contract, so we transfer them here immediately
         IERC20(address(VAULT)).safeTransferFrom(msg.sender, address(this), amountShares);
 
@@ -115,7 +168,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
         VAULT.withdraw(
             withdrawParams.amountShares,
-            abi.encodeCall(BaseLoopedSonicRouter.withdrawCallback, (withdrawParams, flashLoanFee))
+            abi.encodeCall(BaseLoopedSonicRouter.withdrawWithFlashLoanCallback, (withdrawParams, flashLoanFee))
         );
 
         // Allow aave to pull the funds to pay back the flashloan + fee
@@ -124,7 +177,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         return true;
     }
 
-    function withdrawCallback(WithdrawParams memory params, uint256 flashLoanFee) external onlyVault {
+    function withdrawWithFlashLoanCallback(WithdrawParams memory params, uint256 flashLoanFee) external onlyVault {
         VAULT.pullWeth(params.debtInEth);
 
         VAULT.aaveRepayWeth(params.debtInEth);
@@ -141,6 +194,4 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
         IERC20(address(VAULT.WETH())).safeTransfer(params.recipient, amountToRecipient);
     }
-
-    receive() external payable {}
 }

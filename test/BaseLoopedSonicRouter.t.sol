@@ -79,7 +79,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
         bytes memory convertData = abi.encode(wethSwappedAmount);
 
         vm.prank(user1);
-        router.withdraw(shares, 0, convertData);
+        router.withdrawWithFlashLoan(shares, 0, convertData);
 
         uint256 wethBalanceAfter = WETH.balanceOf(user1);
         assertApproxEqAbs(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut, 1);
@@ -90,7 +90,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
 
         vm.prank(user1);
         vm.expectRevert();
-        router.withdraw(shares, 0, abi.encode(1 ether));
+        router.withdrawWithFlashLoan(shares, 0, abi.encode(1 ether));
     }
 
     function testWithdrawMinAmountNotMet() public {
@@ -114,7 +114,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(BaseLoopedSonicRouter.AmountOutBelowMin.selector));
-        router.withdraw(shares, expexctedWethAmountOut + 1, convertData);
+        router.withdrawWithFlashLoan(shares, expexctedWethAmountOut + 1, convertData);
     }
 
     function testWithdrawCallbackOnlyVault() public {
@@ -129,7 +129,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(BaseLoopedSonicRouter.NotVault.selector));
-        router.withdrawCallback(params, 0);
+        router.withdrawWithFlashLoanCallback(params, 0);
     }
 
     function testExecuteOperationOnlyAavePool() public {

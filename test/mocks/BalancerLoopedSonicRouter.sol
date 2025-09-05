@@ -19,7 +19,7 @@ contract BalancerLoopedSonicRouter is BaseLoopedSonicRouter {
         IERC20(address(VAULT.LST())).approve(address(BALANCER_VAULT), type(uint256).max);
     }
 
-    function convertWethToLst(uint256 wethAmount) internal override returns (uint256) {
+    function convertWethSessionBalanceToLstSessionBalance(uint256 wethAmount) internal override returns (uint256) {
         return VAULT.stakeWeth(wethAmount);
     }
 
