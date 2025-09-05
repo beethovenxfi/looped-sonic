@@ -12,48 +12,49 @@ import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
 
+    // Each call to vault.stakeWeth can result in the LST rounding in it's favor (1 wei)
+    // In addition, aave will round down the collateral amount, so we account for that as well
+    uint256 public constant NAV_DECREASE_TOLERANCE = MAX_LOOP_ITERATIONS + 1;
+
     function setUp() public override {
         super.setUp();
     }
 
-    function testGetVaultSnapshotInitialState() public view {
+    function testGetVaultSnapshotMatchesExpectedValues() public view {
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
+        (uint256 ltv, uint256 liquidationThreshold,) =
+            vault.AAVE_POOL().getEModeCategoryCollateralConfig(vault.AAVE_E_MODE_CATEGORY_ID());
 
-        assertGt(snapshot.lstCollateralAmount, 0);
-        assertGt(snapshot.lstCollateralAmountInEth, 0);
-        assertEq(snapshot.wethDebtAmount, 0);
-        assertGt(snapshot.vaultTotalSupply, 0);
-        assertGt(snapshot.ltv, 0);
-        assertGt(snapshot.liquidationThreshold, 0);
-    }
-
-    function testGetVaultSnapshotAfterDeposit() public {
-        _setupStandardDeposit();
-
-        VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
-
-        assertGt(snapshot.lstCollateralAmount, 0);
-        assertGt(snapshot.lstCollateralAmountInEth, 0);
-        assertGt(snapshot.wethDebtAmount, 0);
-        assertGt(snapshot.vaultTotalSupply, 0);
-        assertGt(snapshot.ltv, 0);
-        assertGt(snapshot.liquidationThreshold, 0);
+        assertEq(snapshot.lstCollateralAmount, vault.LST_A_TOKEN().balanceOf(address(vault)));
+        assertEq(
+            snapshot.lstCollateralAmountInEth,
+            vault.aaveCapoRateProvider().convertToAssets(snapshot.lstCollateralAmount)
+        );
+        assertEq(snapshot.wethDebtAmount, vault.WETH_VARIABLE_DEBT_TOKEN().balanceOf(address(vault)));
+        assertEq(snapshot.vaultTotalSupply, vault.totalSupply());
+        assertEq(snapshot.ltv, ltv);
+        assertEq(snapshot.liquidationThreshold, liquidationThreshold);
     }
 
     function testTotalAssets() public view {
         uint256 totalAssets = vault.totalAssets();
-        assertGt(totalAssets, 0);
-
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
-        assertEq(totalAssets, snapshot.netAssetValueInEth());
+
+        assertEq(totalAssets, snapshot.netAssetValueInEth(), "Total assets should equal the NAV");
     }
 
     function testTotalAssetsAfterDeposit() public {
+        uint256 depositAmount = 1 ether;
         uint256 totalAssetsBefore = vault.totalAssets();
-        _setupStandardDeposit();
+        _depositToVault(user1, depositAmount, 0, "");
         uint256 totalAssetsAfter = vault.totalAssets();
 
-        assertGt(totalAssetsAfter, totalAssetsBefore);
+        assertApproxEqAbs(
+            totalAssetsAfter,
+            totalAssetsBefore + depositAmount,
+            NAV_DECREASE_TOLERANCE,
+            "Total assets should increase by the deposit amount"
+        );
     }
 
     function testConvertToAssetsZeroShares() public view {
@@ -102,7 +103,7 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
         assertEq(rate, expectedRate);
     }
 
-    function testGetRateAfterDeposit() public {
+    function testGetRateDoesNotChangeAfterDeposit() public {
         uint256 rateBefore = vault.getRate();
         _setupStandardDeposit();
         uint256 rateAfter = vault.getRate();
