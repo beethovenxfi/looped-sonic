@@ -35,7 +35,7 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
 
         vm.expectEmit(true, true, false, false);
         // Because of AAVE rounding, the nav may be 1 wei smaller than the init amount
-        emit ILoopedSonicVault.Initialize(user1, address(1), 0, 0);
+        emit ILoopedSonicVault.Initialize(user1, address(1), 0, 0, 0, 0, 0);
 
         vm.prank(user1);
         vault.initialize();
