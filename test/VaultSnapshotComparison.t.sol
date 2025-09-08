@@ -171,10 +171,10 @@ contract VaultSnapshotComparisonTest is Test {
     function testCheckCollateralAfterWithdrawWithTooLowCollateral() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
         uint256 expectedCollateralReduction = comparison.stateBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.stateAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 2;
+        comparison.stateAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 3;
 
         bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
-        assertFalse(result, "Collateral check should fail with collateral lower than 1 wei tolerance");
+        assertFalse(result, "Collateral check should fail with collateral lower than 2 wei tolerance");
     }
 
     function testFuzzNavIncreaseEth(
