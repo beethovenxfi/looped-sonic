@@ -144,10 +144,10 @@ contract VaultSnapshotComparisonTest is Test {
     function testCheckDebtAfterWithdrawWithTooHighDebt() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
         uint256 expectedDebtReduction = comparison.stateBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.stateAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 2;
+        comparison.stateAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 3;
 
         bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
-        assertFalse(result, "Debt check should fail with debt higher than 1 wei tolerance");
+        assertFalse(result, "Debt check should fail with debt higher than 2 wei tolerance");
     }
 
     function testCheckCollateralAfterWithdrawExactMatch() public {
@@ -242,6 +242,9 @@ contract VaultSnapshotComparisonTest is Test {
             assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
 
             comparison.stateAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 2;
+            assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
+
+            comparison.stateAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 3;
             assertFalse(comparison.checkDebtAfterWithdraw(sharesToRedeem));
         }
     }

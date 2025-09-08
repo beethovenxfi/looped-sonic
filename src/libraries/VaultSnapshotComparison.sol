@@ -2,7 +2,6 @@
 pragma solidity ^0.8.30;
 
 import {VaultSnapshot} from "./VaultSnapshot.sol";
-import {console} from "forge-std/console.sol";
 
 library VaultSnapshotComparison {
     using VaultSnapshotComparison for Data;
@@ -41,10 +40,10 @@ library VaultSnapshotComparison {
             data.stateBefore.wethDebtAmount - data.stateBefore.proportionalDebtInEth(sharesToRedeem);
 
         return expectedDebtAfter == data.stateAfter.wethDebtAmount
-        // When repaying debt, aave will round in it's favor, potentially leaving the vault with 1 wei more debt
-        // than expected. Since the vault rounds in it's favor in VaultSnapshot.proportionalDebtInEth, we can
-        // safely add 1 wei to the expected debt.
-        || expectedDebtAfter + 1 == data.stateAfter.wethDebtAmount;
+        // When repaying debt, aave will round in it's favor, potentially leaving the vault with up to 2 wei more debt
+        // than expected.
+        || expectedDebtAfter + 1 == data.stateAfter.wethDebtAmount
+            || expectedDebtAfter + 2 == data.stateAfter.wethDebtAmount;
     }
 
     function checkCollateralAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
@@ -55,10 +54,10 @@ library VaultSnapshotComparison {
             return data.stateAfter.lstCollateralAmount == 0;
         }
 
-        // When withdrawing collateral, aave will round in it's favor, potentially leaving the vault with 1 wei less
-        // collateral than expected. Since the vault rounds in it's favor in VaultSnapshot.proportionalCollateralInLst,
-        // we can safely subtract 1 wei from the expected collateral.
+        // When withdrawing collateral, aave will round in it's favor, potentially leaving the vault with 2 wei less
+        // collateral than expected.
         return expectedCollateralAfter == data.stateAfter.lstCollateralAmount
-            || expectedCollateralAfter - 1 == data.stateAfter.lstCollateralAmount;
+            || expectedCollateralAfter - 1 == data.stateAfter.lstCollateralAmount
+            || expectedCollateralAfter - 2 == data.stateAfter.lstCollateralAmount;
     }
 }

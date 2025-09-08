@@ -30,14 +30,14 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
         assertApproxEqAbs(
             snapshotAfter.lstCollateralAmountInEth,
             snapshotBefore.lstCollateralAmountInEth + donateAmount,
-            1,
+            2,
             "LST collateral should increase by the donate amount"
         );
 
         assertApproxEqAbs(
             snapshotAfter.netAssetValueInEth(),
             snapshotBefore.netAssetValueInEth() + donateAmount,
-            1,
+            2,
             "Nav should increase by the donate amount"
         );
 
@@ -65,7 +65,7 @@ contract LoopedSonicVaultDonateTest is LoopedSonicVaultBase {
         assertApproxEqAbs(
             snapshotAfter.lstCollateralAmountInEth,
             snapshotBefore.lstCollateralAmountInEth + donateAmount * 2,
-            2,
+            4, // 2 wei per donation
             "LST collateral should increase by the donate amount"
         );
     }

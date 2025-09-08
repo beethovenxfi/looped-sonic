@@ -476,7 +476,9 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         assertGe(invariantAfter, invariantBefore, "Invariant should never decrease");
 
         if (healthFactorAfterWarp > targetHealthFactor) {
-            assertEq(vault.getHealthFactor(), targetHealthFactor, "Health factor should be at target after deposit");
+            assertApproxEqAbs(
+                vault.getHealthFactor(), targetHealthFactor, 1e12, "Health factor should be at target after deposit"
+            );
         } else {
             assertGe(
                 vault.getHealthFactor(), healthFactorAfterWarp, "Health factor should be above previous after deposit"

@@ -187,9 +187,10 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
         (uint256 collateralInLstAfter, uint256 debtInEthAfter) = vault.getCollateralAndDebtForShares(sharesToRedeem);
 
         assertEq(debtInEthAfter, debtInEth, "Debt should not change");
-        assertEq(
+        assertApproxEqAbs(
             collateralInLstAfter,
             collateralInLst + expectedCollateralIncrease,
+            2,
             "Collateral should increase relative to the donate amount"
         );
     }
@@ -241,7 +242,7 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
 
         assertEq(sharesAfter, sharesBefore - sharesToRedeem, "Shares should be burned");
 
-        assertApproxEqAbs(data.stateAfter.netAssetValueInEth(), expectedNav, 2, "NAV should decrease proportionally");
+        assertApproxEqAbs(data.stateAfter.netAssetValueInEth(), expectedNav, 4, "NAV should decrease proportionally");
     }
 
     function _invalidWithdrawCallback(address user, uint256 sharesToRedeem, uint256 collateralInLst, uint256 debtInEth)

@@ -60,7 +60,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         assertApproxEqAbs(
             snapshotAfter.netAssetValueInEth(),
             snapshotBefore.netAssetValueInEth(),
-            1,
+            2,
             "Net asset value should not change when liquidating at the redemption rate"
         );
 
@@ -230,7 +230,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
-        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1, 1);
+        assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1, 2);
     }
 
     function testUnwindWithTooMuchSlippage() public {

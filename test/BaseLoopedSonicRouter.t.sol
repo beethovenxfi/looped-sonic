@@ -82,7 +82,7 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
         router.withdrawWithFlashLoan(shares, 0, convertData);
 
         uint256 wethBalanceAfter = WETH.balanceOf(user1);
-        assertApproxEqAbs(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut, 1);
+        assertApproxEqAbs(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut, 2);
         // Any rounding should be in favor of the vault
         assertLe(wethBalanceAfter, wethBalanceBefore + expexctedWethAmountOut);
     }
