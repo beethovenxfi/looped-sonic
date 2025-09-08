@@ -178,11 +178,19 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
+        shares = data.stateAfter.vaultTotalSupply * navIncreaseEth / data.stateBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
-        emit Deposit(msg.sender, receiver, shares, navIncreaseEth);
+        emit Deposit(
+            msg.sender,
+            receiver,
+            shares,
+            navIncreaseEth,
+            data.stateAfter.lstCollateralAmountInEth,
+            data.stateAfter.wethDebtAmount,
+            totalSupply()
+        );
     }
 
     /**
@@ -207,7 +215,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(data.checkDebtAfterWithdraw(sharesToRedeem), InvalidDebtAfterWithdraw());
         require(data.checkCollateralAfterWithdraw(sharesToRedeem), InvalidCollateralAfterWithdraw());
 
-        emit Withdraw(msg.sender, sharesToRedeem, data.navDecreaseEth());
+        emit Withdraw(
+            msg.sender,
+            sharesToRedeem,
+            data.navDecreaseEth(),
+            data.stateAfter.lstCollateralAmountInEth,
+            data.stateAfter.wethDebtAmount,
+            data.stateAfter.vaultTotalSupply
+        );
     }
 
     /**
@@ -218,6 +233,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
 
+        require(snapshotBefore.vaultTotalSupply == 0, TotalSupplyNotZero());
         require(snapshotBefore.lstCollateralAmount == 0, CollateralNotZero());
 
         pullWeth(INIT_AMOUNT);
@@ -240,7 +256,15 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         isInitialized = true;
 
-        emit Initialize(msg.sender, address(1), sharesToMint, sharesToMint);
+        emit Initialize(
+            msg.sender,
+            address(1),
+            sharesToMint,
+            sharesToMint,
+            snapshotAfter.lstCollateralAmountInEth,
+            snapshotAfter.wethDebtAmount,
+            sharesToMint
+        );
     }
 
     /**
@@ -282,7 +306,16 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         aaveRepayWeth(wethAmount);
 
-        emit Unwind(msg.sender, lstAmountToWithdraw, wethAmount);
+        VaultSnapshot.Data memory snapshot = getVaultSnapshot();
+
+        emit Unwind(
+            msg.sender,
+            lstAmountToWithdraw,
+            wethAmount,
+            snapshot.lstCollateralAmountInEth,
+            snapshot.wethDebtAmount,
+            snapshot.vaultTotalSupply
+        );
     }
 
     // ---------------------------------------------------------------------

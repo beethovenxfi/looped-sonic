@@ -22,7 +22,15 @@ interface ILoopedSonicVault {
      * @param sharesMinted The amount of vault shares minted
      * @param navIncreaseEth The increase in net asset value in ETH terms
      */
-    event Deposit(address indexed caller, address indexed receiver, uint256 sharesMinted, uint256 navIncreaseEth);
+    event Deposit(
+        address indexed caller,
+        address indexed receiver,
+        uint256 sharesMinted,
+        uint256 navIncreaseEth,
+        uint256 totalCollateralEth,
+        uint256 totalDebtEth,
+        uint256 totalSupply
+    );
 
     /**
      * @notice Emitted when a user withdraws assets by burning vault shares
@@ -30,7 +38,14 @@ interface ILoopedSonicVault {
      * @param sharesBurned The amount of vault shares burned
      * @param navDecreaseEth The decrease in net asset value in ETH terms
      */
-    event Withdraw(address indexed caller, uint256 sharesBurned, uint256 navDecreaseEth);
+    event Withdraw(
+        address indexed caller,
+        uint256 sharesBurned,
+        uint256 navDecreaseEth,
+        uint256 totalCollateralEth,
+        uint256 totalDebtEth,
+        uint256 totalSupply
+    );
 
     /**
      * @notice Emitted when the vault is initialized with initial liquidity
@@ -39,7 +54,15 @@ interface ILoopedSonicVault {
      * @param sharesMinted The amount of initial shares minted
      * @param navIncreaseEth The initial net asset value in ETH terms
      */
-    event Initialize(address indexed caller, address indexed receiver, uint256 sharesMinted, uint256 navIncreaseEth);
+    event Initialize(
+        address indexed caller,
+        address indexed receiver,
+        uint256 sharesMinted,
+        uint256 navIncreaseEth,
+        uint256 totalCollateralEth,
+        uint256 totalDebtEth,
+        uint256 totalSupply
+    );
 
     /**
      * @notice Emitted when collateral is unwound through external liquidation
@@ -47,7 +70,14 @@ interface ILoopedSonicVault {
      * @param lstAmountCollateralWithdrawn The amount of LST collateral withdrawn
      * @param wethAmountDebtRepaid The amount of WETH debt repaid
      */
-    event Unwind(address indexed caller, uint256 lstAmountCollateralWithdrawn, uint256 wethAmountDebtRepaid);
+    event Unwind(
+        address indexed caller,
+        uint256 lstAmountCollateralWithdrawn,
+        uint256 wethAmountDebtRepaid,
+        uint256 totalCollateralEth,
+        uint256 totalDebtEth,
+        uint256 totalSupply
+    );
 
     /**
      * @notice Emitted when WETH is staked to receive LST
@@ -169,6 +199,7 @@ interface ILoopedSonicVault {
     error ZeroShares();
     error SharesExceedTotalSupply();
     error LstRateChanged();
+    error TotalSupplyNotZero();
 
     // ---------------------------------------------------------------------
     // Primary vault operations
