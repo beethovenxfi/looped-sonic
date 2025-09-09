@@ -7,13 +7,14 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {ISonicStaking} from "./interfaces/ISonicStaking.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
-import {IAavePool} from "./interfaces/IAavePool.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {VaultSnapshot} from "./libraries/VaultSnapshot.sol";
 import {VaultSnapshotComparison} from "./libraries/VaultSnapshotComparison.sol";
-import {IPriceOracle} from "./interfaces/IPriceOracle.sol";
 import {ILoopedSonicVault} from "./interfaces/ILoopedSonicVault.sol";
 import {IAaveCapoRateProvider} from "./interfaces/IAaveCapoRateProvider.sol";
+import {IPool} from "aave-v3-origin/interfaces/IPool.sol";
+import {IPoolDataProvider} from "aave-v3-origin/interfaces/IPoolDataProvider.sol";
+import {DataTypes} from "aave-v3-origin/protocol/libraries/types/DataTypes.sol";
 
 contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     using SafeERC20 for IERC20;
@@ -38,7 +39,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // ---------------------------------------------------------------------
     IWETH public immutable WETH;
     ISonicStaking public immutable LST;
-    IAavePool public immutable AAVE_POOL;
+    IPool public immutable AAVE_POOL;
     IERC20 public immutable LST_A_TOKEN;
     IERC20 public immutable WETH_VARIABLE_DEBT_TOKEN;
     uint8 public immutable AAVE_E_MODE_CATEGORY_ID;
@@ -86,10 +87,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
-        AAVE_POOL = IAavePool(_aavePool);
+        AAVE_POOL = IPool(_aavePool);
         LST_A_TOKEN = IERC20(AAVE_POOL.getReserveAToken(address(LST)));
         (,, address wethVariableDebtToken) =
-            AAVE_POOL.ADDRESSES_PROVIDER().getPoolDataProvider().getReserveTokensAddresses(_weth);
+            IPoolDataProvider(AAVE_POOL.ADDRESSES_PROVIDER().getPoolDataProvider()).getReserveTokensAddresses(_weth);
         WETH_VARIABLE_DEBT_TOKEN = IERC20(wethVariableDebtToken);
 
         AAVE_E_MODE_CATEGORY_ID = _eModeCategoryId;
@@ -458,7 +459,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.lstCollateralAmount = getAaveLstCollateralAmount();
         data.lstCollateralAmountInEth = aaveCapoRateProvider.convertToAssets(data.lstCollateralAmount);
 
-        (data.ltv, data.liquidationThreshold,) = AAVE_POOL.getEModeCategoryCollateralConfig(AAVE_E_MODE_CATEGORY_ID);
+        DataTypes.CollateralConfig memory collateralConfig =
+            AAVE_POOL.getEModeCategoryCollateralConfig(AAVE_E_MODE_CATEGORY_ID);
+        data.ltv = collateralConfig.ltv;
+        data.liquidationThreshold = collateralConfig.liquidationThreshold;
 
         data.vaultTotalSupply = totalSupply();
     }

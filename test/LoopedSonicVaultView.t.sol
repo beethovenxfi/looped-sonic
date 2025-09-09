@@ -8,6 +8,7 @@ import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
+import {DataTypes} from "aave-v3-origin/protocol/libraries/types/DataTypes.sol";
 
 contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
@@ -22,7 +23,7 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
 
     function testGetVaultSnapshotMatchesExpectedValues() public view {
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
-        (uint256 ltv, uint256 liquidationThreshold,) =
+        DataTypes.CollateralConfig memory collateralConfig =
             vault.AAVE_POOL().getEModeCategoryCollateralConfig(vault.AAVE_E_MODE_CATEGORY_ID());
 
         assertEq(snapshot.lstCollateralAmount, vault.LST_A_TOKEN().balanceOf(address(vault)));
@@ -32,8 +33,8 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
         );
         assertEq(snapshot.wethDebtAmount, vault.WETH_VARIABLE_DEBT_TOKEN().balanceOf(address(vault)));
         assertEq(snapshot.vaultTotalSupply, vault.totalSupply());
-        assertEq(snapshot.ltv, ltv);
-        assertEq(snapshot.liquidationThreshold, liquidationThreshold);
+        assertEq(snapshot.ltv, collateralConfig.ltv);
+        assertEq(snapshot.liquidationThreshold, collateralConfig.liquidationThreshold);
     }
 
     function testTotalAssets() public view {

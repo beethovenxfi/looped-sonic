@@ -5,7 +5,6 @@ import {Test, console} from "forge-std/Test.sol";
 import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
 import {IWETH} from "../src/interfaces/IWETH.sol";
 import {ISonicStaking} from "../src/interfaces/ISonicStaking.sol";
-import {IAavePool} from "../src/interfaces/IAavePool.sol";
 import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";

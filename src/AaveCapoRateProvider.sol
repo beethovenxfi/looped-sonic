@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {IAavePool} from "./interfaces/IAavePool.sol";
 import {IPriceCapAdapter} from "./interfaces/IPriceCapAdapter.sol";
 import {IAaveCapoRateProvider} from "./interfaces/IAaveCapoRateProvider.sol";
 import {ISonicStaking} from "./interfaces/ISonicStaking.sol";

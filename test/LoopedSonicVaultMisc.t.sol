@@ -10,16 +10,16 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 import "forge-std/Vm.sol";
-import {IPriceOracle} from "../src/interfaces/IPriceOracle.sol";
 import {AaveCapoRateProvider} from "../src/AaveCapoRateProvider.sol";
 import {IAaveCapoRateProvider} from "../src/interfaces/IAaveCapoRateProvider.sol";
+import {IPriceOracle} from "aave-v3-origin/interfaces/IPriceOracle.sol";
 
 contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
     using VaultSnapshotComparison for VaultSnapshotComparison.Data;
 
     function testGrowthInLstRateIsImmediatelyReflected() public {
-        IPriceOracle priceOracle = vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle();
+        IPriceOracle priceOracle = IPriceOracle(vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle());
         uint256 donateAmount = 100_000 ether;
         uint256 lstRateBefore = LST.getRate();
         uint256 lstPriceBefore = priceOracle.getAssetPrice(address(LST));
@@ -50,7 +50,7 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
     }
 
     function testGrowthInLstRateExceedsMaxRatio() public {
-        IPriceOracle priceOracle = vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle();
+        IPriceOracle priceOracle = IPriceOracle(vault.AAVE_POOL().ADDRESSES_PROVIDER().getPriceOracle());
         IAaveCapoRateProvider rateProvider = vault.aaveCapoRateProvider();
         uint256 donateAmount = 10_000_000 ether;
 

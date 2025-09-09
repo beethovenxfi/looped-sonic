@@ -5,10 +5,12 @@ import {LoopedSonicVault} from "./LoopedSonicVault.sol";
 import {VaultSnapshot} from "./libraries/VaultSnapshot.sol";
 import {IWETH} from "./interfaces/IWETH.sol";
 import {IBalancerVault} from "./interfaces/IBalancerVault.sol";
-import {IFlashLoanSimpleReceiver} from "./interfaces/IFlashLoanSimpleReceiver.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {console} from "forge-std/console.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IFlashLoanSimpleReceiver} from "aave-v3-origin/misc/flashloan/interfaces/IFlashLoanSimpleReceiver.sol";
+import {IPoolAddressesProvider} from "aave-v3-origin/interfaces/IPoolAddressesProvider.sol";
+import {IPool} from "aave-v3-origin/interfaces/IPool.sol";
 
 abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     using VaultSnapshot for VaultSnapshot.Data;
@@ -195,5 +197,13 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
         require(amountToRecipient >= params.minWethAmountOut, AmountOutBelowMin());
 
         IERC20(address(VAULT.WETH())).safeTransfer(params.recipient, amountToRecipient);
+    }
+
+    function ADDRESSES_PROVIDER() external view returns (IPoolAddressesProvider) {
+        return VAULT.AAVE_POOL().ADDRESSES_PROVIDER();
+    }
+
+    function POOL() external view returns (IPool) {
+        return VAULT.AAVE_POOL();
     }
 }
