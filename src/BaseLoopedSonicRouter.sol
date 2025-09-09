@@ -90,8 +90,8 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
      * @param amountShares The amount of shares to burn
      * @param minWethAmountOut The minimum amount of WETH to receive
      * @param convertLstToWethData abi encoded data used by the router implementation to convert the LST to WETH
-     * @dev This path will only work for small withdrawals relative to the vault size. If the number of shares is too large
-     * the withdraw from aave will bring the health factor below 1.0 and revert.
+     * @dev This path will only work for small withdrawals relative to the vault size. If the number of shares is too
+     * large the withdraw from aave will bring the health factor below 1.0 and revert.
      */
     function withdraw(uint256 amountShares, uint256 minWethAmountOut, bytes memory convertLstToWethData) external {
         // The vault will burn shares from this contract, so we transfer them here immediately
@@ -136,7 +136,8 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
      * @param amountShares The amount of shares to burn
      * @param minWethAmountOut The minimum amount of WETH to receive
      * @param convertLstToWethData abi encoded data used by the router implementation to convert the LST to WETH
-     * @dev This path takes a flash loan from Aave, it can facilitate larger withdrawals, but is subject to the 5 BPS fee.
+     * @dev This path takes a flash loan from Aave, it can facilitate larger withdrawals, but is subject to the 5 BPS
+     * fee.
      */
     function withdrawWithFlashLoan(uint256 amountShares, uint256 minWethAmountOut, bytes memory convertLstToWethData)
         external
@@ -155,6 +156,7 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
             convertLstToWethData: convertLstToWethData
         });
 
+        // The aave flash loan will callback into this contract, calling the executeOperation function.
         VAULT.AAVE_POOL().flashLoanSimple(address(this), address(VAULT.WETH()), params.debtInEth, abi.encode(params), 0);
     }
 
