@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {VaultSnapshot} from "./VaultSnapshot.sol";
+import {TokenMath} from "aave-v3-origin/protocol/libraries/helpers/TokenMath.sol";
 
 library VaultSnapshotComparison {
     using VaultSnapshotComparison for Data;
@@ -29,35 +30,35 @@ library VaultSnapshotComparison {
             return data.stateAfter.healthFactor() >= data.stateBefore.healthFactor()
                 && data.stateAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         } else {
-            // The previous health factor is above the target, we require that the health factor is within a margin of the target
+            // The previous health factor is above the target, we require that the health factor is within a margin of
+            // the target
             return data.stateAfter.healthFactor() >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
                 && data.stateAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
         }
     }
 
-    function checkDebtAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
-        uint256 expectedDebtAfter =
-            data.stateBefore.wethDebtAmount - data.stateBefore.proportionalDebtInEth(sharesToRedeem);
+    function checkDebtAfterWithdraw(Data memory data, uint256 sharesToRedeem, uint256 wethVariableBorrowIndex)
+        internal
+        pure
+        returns (bool)
+    {
+        uint256 expectedWethDebtTokenBurned = TokenMath.getVTokenBurnScaledAmount(
+            data.stateBefore.proportionalDebtInEth(sharesToRedeem), wethVariableBorrowIndex
+        );
 
-        return expectedDebtAfter == data.stateAfter.wethDebtAmount
-        // When repaying debt, aave will round in it's favor, potentially leaving the vault with up to 2 wei more debt
-        // than expected.
-        || expectedDebtAfter + 1 == data.stateAfter.wethDebtAmount
-            || expectedDebtAfter + 2 == data.stateAfter.wethDebtAmount;
+        return
+            data.stateAfter.wethDebtTokenBalance == data.stateBefore.wethDebtTokenBalance - expectedWethDebtTokenBurned;
     }
 
-    function checkCollateralAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
-        uint256 expectedCollateralAfter =
-            data.stateBefore.lstCollateralAmount - data.stateBefore.proportionalCollateralInLst(sharesToRedeem);
+    function checkCollateralAfterWithdraw(Data memory data, uint256 sharesToRedeem, uint256 lstLiquidityIndex)
+        internal
+        pure
+        returns (bool)
+    {
+        uint256 expectedLstATokenBurned = TokenMath.getATokenBurnScaledAmount(
+            data.stateBefore.proportionalCollateralInLst(sharesToRedeem), lstLiquidityIndex
+        );
 
-        if (expectedCollateralAfter == 0) {
-            return data.stateAfter.lstCollateralAmount == 0;
-        }
-
-        // When withdrawing collateral, aave will round in it's favor, potentially leaving the vault with 2 wei less
-        // collateral than expected.
-        return expectedCollateralAfter == data.stateAfter.lstCollateralAmount
-            || expectedCollateralAfter - 1 == data.stateAfter.lstCollateralAmount
-            || expectedCollateralAfter - 2 == data.stateAfter.lstCollateralAmount;
+        return data.stateAfter.lstATokenBalance == data.stateBefore.lstATokenBalance - expectedLstATokenBurned;
     }
 }

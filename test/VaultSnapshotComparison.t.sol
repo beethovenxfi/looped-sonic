@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {VaultSnapshotComparison} from "../src/libraries/VaultSnapshotComparison.sol";
 import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {console} from "forge-std/console.sol";
+import {TokenMath} from "aave-v3-origin/protocol/libraries/helpers/TokenMath.sol";
 
 contract VaultSnapshotComparisonTest is Test {
     using VaultSnapshotComparison for VaultSnapshotComparison.Data;
@@ -19,6 +20,10 @@ contract VaultSnapshotComparisonTest is Test {
     uint16 private constant LIQUIDATION_THRESHOLD = 8500;
     uint16 private constant LTV = 8000;
     uint256 private constant TARGET_HEALTH_FACTOR = 2e18;
+    uint256 private constant WETH_VARIABLE_BORROW_INDEX = 1e27;
+    uint256 private constant LST_LIQUIDITY_INDEX = 1e27;
+    uint256 private constant LST_A_TOKEN_BALANCE = 100e18;
+    uint256 private constant WETH_DEBT_TOKEN_BALANCE = 50e18;
 
     function setUp() public {
         VaultSnapshot.Data memory beforeSnapshot = VaultSnapshot.Data({
@@ -27,7 +32,9 @@ contract VaultSnapshotComparisonTest is Test {
             wethDebtAmount: BASE_DEBT_AMOUNT,
             liquidationThreshold: LIQUIDATION_THRESHOLD,
             ltv: LTV,
-            vaultTotalSupply: BASE_TOTAL_SUPPLY
+            vaultTotalSupply: BASE_TOTAL_SUPPLY,
+            lstATokenBalance: LST_A_TOKEN_BALANCE,
+            wethDebtTokenBalance: WETH_DEBT_TOKEN_BALANCE
         });
 
         VaultSnapshot.Data memory afterSnapshot = VaultSnapshot.Data({
@@ -36,7 +43,9 @@ contract VaultSnapshotComparisonTest is Test {
             wethDebtAmount: BASE_DEBT_AMOUNT,
             liquidationThreshold: LIQUIDATION_THRESHOLD,
             ltv: LTV,
-            vaultTotalSupply: BASE_TOTAL_SUPPLY
+            vaultTotalSupply: BASE_TOTAL_SUPPLY,
+            lstATokenBalance: LST_A_TOKEN_BALANCE,
+            wethDebtTokenBalance: WETH_DEBT_TOKEN_BALANCE
         });
 
         comparison = VaultSnapshotComparison.Data({stateBefore: beforeSnapshot, stateAfter: afterSnapshot});
@@ -126,54 +135,51 @@ contract VaultSnapshotComparisonTest is Test {
     function testCheckDebtAfterWithdrawExactMatch() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
         uint256 expectedDebtReduction = comparison.stateBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.stateAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction;
 
-        bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
+        uint256 expectedDebtTokenReduction =
+            TokenMath.getVTokenBurnScaledAmount(expectedDebtReduction, WETH_VARIABLE_BORROW_INDEX);
+
+        comparison.stateAfter.wethDebtTokenBalance = WETH_DEBT_TOKEN_BALANCE - expectedDebtTokenReduction;
+
+        bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem, WETH_VARIABLE_BORROW_INDEX);
         assertTrue(result, "Debt check should pass with exact expected debt amount");
-    }
-
-    function testCheckDebtAfterWithdrawWithOneWeiTolerance() public {
-        uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedDebtReduction = comparison.stateBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.stateAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 1;
-
-        bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
-        assertTrue(result, "Debt check should pass with 1 wei tolerance for Aave rounding");
     }
 
     function testCheckDebtAfterWithdrawWithTooHighDebt() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
         uint256 expectedDebtReduction = comparison.stateBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.stateAfter.wethDebtAmount = BASE_DEBT_AMOUNT - expectedDebtReduction + 3;
+        uint256 expectedDebtTokenReduction =
+            TokenMath.getVTokenBurnScaledAmount(expectedDebtReduction, WETH_VARIABLE_BORROW_INDEX);
 
-        bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem);
+        comparison.stateAfter.wethDebtTokenBalance = WETH_DEBT_TOKEN_BALANCE - expectedDebtTokenReduction + 1;
+
+        bool result = comparison.checkDebtAfterWithdraw(sharesToRedeem, WETH_VARIABLE_BORROW_INDEX);
         assertFalse(result, "Debt check should fail with debt higher than 2 wei tolerance");
     }
 
     function testCheckCollateralAfterWithdrawExactMatch() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
         uint256 expectedCollateralReduction = comparison.stateBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.stateAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction;
 
-        bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
+        uint256 expectedLstATokenReduction =
+            TokenMath.getATokenBurnScaledAmount(expectedCollateralReduction, LST_LIQUIDITY_INDEX);
+
+        comparison.stateAfter.lstATokenBalance = LST_A_TOKEN_BALANCE - expectedLstATokenReduction;
+
+        bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem, LST_LIQUIDITY_INDEX);
         assertTrue(result, "Collateral check should pass with exact expected collateral amount");
-    }
-
-    function testCheckCollateralAfterWithdrawWithOneWeiTolerance() public {
-        uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
-        uint256 expectedCollateralReduction = comparison.stateBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.stateAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 1;
-
-        bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
-        assertTrue(result, "Collateral check should pass with 1 wei tolerance for Aave rounding");
     }
 
     function testCheckCollateralAfterWithdrawWithTooLowCollateral() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY / 10;
         uint256 expectedCollateralReduction = comparison.stateBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.stateAfter.lstCollateralAmount = BASE_COLLATERAL_AMOUNT - expectedCollateralReduction - 3;
 
-        bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem);
+        uint256 expectedLstATokenReduction =
+            TokenMath.getATokenBurnScaledAmount(expectedCollateralReduction, LST_LIQUIDITY_INDEX);
+
+        comparison.stateAfter.lstATokenBalance = LST_A_TOKEN_BALANCE - expectedLstATokenReduction - 1;
+
+        bool result = comparison.checkCollateralAfterWithdraw(sharesToRedeem, LST_LIQUIDITY_INDEX);
         assertFalse(result, "Collateral check should fail with collateral lower than 2 wei tolerance");
     }
 
@@ -223,55 +229,54 @@ contract VaultSnapshotComparisonTest is Test {
         assertEq(result, expected);
     }
 
-    function testFuzzCheckDebtAfterWithdraw(uint256 initialDebt, uint256 totalSupply, uint256 sharesToRedeem) public {
-        initialDebt = bound(initialDebt, 1, type(uint128).max);
-        totalSupply = bound(totalSupply, 1, type(uint128).max);
+    function testFuzzCheckDebtAfterWithdraw(
+        uint256 initialWethDebtTokenBalance,
+        uint256 totalSupply,
+        uint256 sharesToRedeem,
+        uint256 wethVariableBorrowIndex
+    ) public {
+        initialWethDebtTokenBalance = bound(initialWethDebtTokenBalance, 1, type(uint128).max / 10);
+        totalSupply = bound(totalSupply, 1, type(uint128).max / 10);
         sharesToRedeem = bound(sharesToRedeem, 1, totalSupply);
+        wethVariableBorrowIndex = bound(wethVariableBorrowIndex, 1e27, 100e27);
 
-        comparison.stateBefore.wethDebtAmount = initialDebt;
+        comparison.stateBefore.wethDebtTokenBalance = initialWethDebtTokenBalance;
+        comparison.stateBefore.wethDebtAmount =
+            TokenMath.getVTokenBalance(initialWethDebtTokenBalance, wethVariableBorrowIndex);
         comparison.stateBefore.vaultTotalSupply = totalSupply;
-        comparison.stateAfter.vaultTotalSupply = totalSupply;
 
         uint256 expectedDebtReduction = comparison.stateBefore.proportionalDebtInEth(sharesToRedeem);
-        comparison.stateAfter.wethDebtAmount = initialDebt - expectedDebtReduction;
+        uint256 expectedDebtTokenReduction =
+            TokenMath.getVTokenBurnScaledAmount(expectedDebtReduction, wethVariableBorrowIndex);
 
-        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
+        comparison.stateAfter.wethDebtTokenBalance = initialWethDebtTokenBalance - expectedDebtTokenReduction;
 
-        if (expectedDebtReduction < initialDebt) {
-            comparison.stateAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 1;
-            assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
-
-            comparison.stateAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 2;
-            assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
-
-            comparison.stateAfter.wethDebtAmount = initialDebt - expectedDebtReduction + 3;
-            assertFalse(comparison.checkDebtAfterWithdraw(sharesToRedeem));
-        }
+        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem, wethVariableBorrowIndex));
     }
 
     function testFuzzCheckCollateralAfterWithdraw(
-        uint256 initialCollateral,
+        uint256 initialLstATokenBalance,
         uint256 totalSupply,
-        uint256 sharesToRedeem
+        uint256 sharesToRedeem,
+        uint256 lstLiquidityIndex
     ) public {
-        initialCollateral = bound(initialCollateral, 1, type(uint128).max);
-        totalSupply = bound(totalSupply, 1, type(uint128).max);
+        initialLstATokenBalance = bound(initialLstATokenBalance, 1, type(uint128).max / 10);
+        totalSupply = bound(totalSupply, 1, type(uint128).max / 10);
         sharesToRedeem = bound(sharesToRedeem, 1, totalSupply);
+        lstLiquidityIndex = bound(lstLiquidityIndex, 1e27, 100e27);
 
-        comparison.stateBefore.lstCollateralAmount = initialCollateral;
+        comparison.stateBefore.lstATokenBalance = initialLstATokenBalance;
+        comparison.stateBefore.lstCollateralAmount =
+            TokenMath.getATokenBalance(initialLstATokenBalance, lstLiquidityIndex);
         comparison.stateBefore.vaultTotalSupply = totalSupply;
-        comparison.stateAfter.vaultTotalSupply = totalSupply;
 
         uint256 expectedCollateralReduction = comparison.stateBefore.proportionalCollateralInLst(sharesToRedeem);
-        comparison.stateAfter.lstCollateralAmount = initialCollateral - expectedCollateralReduction;
+        uint256 expectedLstATokenReduction =
+            TokenMath.getATokenBurnScaledAmount(expectedCollateralReduction, lstLiquidityIndex);
 
-        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
+        comparison.stateAfter.lstATokenBalance = initialLstATokenBalance - expectedLstATokenReduction;
 
-        // simulate aave rounding in it's favor
-        if (initialCollateral > expectedCollateralReduction) {
-            comparison.stateAfter.lstCollateralAmount = initialCollateral - expectedCollateralReduction - 1;
-            assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
-        }
+        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem, lstLiquidityIndex));
     }
 
     function testHealthFactorMarginConstant() public view {
@@ -281,18 +286,18 @@ contract VaultSnapshotComparisonTest is Test {
     function testEdgeCaseZeroShares() public {
         uint256 sharesToRedeem = 0;
 
-        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
-        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
+        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem, WETH_VARIABLE_BORROW_INDEX));
+        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem, LST_LIQUIDITY_INDEX));
     }
 
     function testEdgeCaseMaxShares() public {
         uint256 sharesToRedeem = BASE_TOTAL_SUPPLY;
 
-        comparison.stateAfter.wethDebtAmount = 0;
-        comparison.stateAfter.lstCollateralAmount = 0;
+        comparison.stateAfter.wethDebtTokenBalance = 0;
+        comparison.stateAfter.lstATokenBalance = 0;
 
-        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
-        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
+        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem, WETH_VARIABLE_BORROW_INDEX));
+        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem, LST_LIQUIDITY_INDEX));
     }
 
     function testHealthFactorCheckExactTargetFromBelow() public {

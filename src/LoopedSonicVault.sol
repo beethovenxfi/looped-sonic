@@ -15,6 +15,7 @@ import {IAaveCapoRateProvider} from "./interfaces/IAaveCapoRateProvider.sol";
 import {IPool} from "aave-v3-origin/interfaces/IPool.sol";
 import {IPoolDataProvider} from "aave-v3-origin/interfaces/IPoolDataProvider.sol";
 import {DataTypes} from "aave-v3-origin/protocol/libraries/types/DataTypes.sol";
+import {IScaledBalanceToken} from "aave-v3-origin/interfaces/IScaledBalanceToken.sol";
 
 contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     using SafeERC20 for IERC20;
@@ -212,9 +213,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         (msg.sender).functionCall(callbackData);
 
         data.stateAfter = getVaultSnapshot();
+        uint256 wethVariableBorrowIndex = AAVE_POOL.getReserveData(address(WETH)).variableBorrowIndex;
+        uint256 lstLiquidityIndex = AAVE_POOL.getReserveData(address(LST)).liquidityIndex;
 
-        require(data.checkDebtAfterWithdraw(sharesToRedeem), InvalidDebtAfterWithdraw());
-        require(data.checkCollateralAfterWithdraw(sharesToRedeem), InvalidCollateralAfterWithdraw());
+        require(data.checkDebtAfterWithdraw(sharesToRedeem, wethVariableBorrowIndex), InvalidDebtAfterWithdraw());
+        require(data.checkCollateralAfterWithdraw(sharesToRedeem, lstLiquidityIndex), InvalidCollateralAfterWithdraw());
 
         emit Withdraw(
             msg.sender,
@@ -465,6 +468,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.liquidationThreshold = collateralConfig.liquidationThreshold;
 
         data.vaultTotalSupply = totalSupply();
+
+        data.lstATokenBalance = IScaledBalanceToken(address(LST_A_TOKEN)).scaledBalanceOf(address(this));
+        data.wethDebtTokenBalance =
+            IScaledBalanceToken(address(WETH_VARIABLE_DEBT_TOKEN)).scaledBalanceOf(address(this));
     }
 
     /**

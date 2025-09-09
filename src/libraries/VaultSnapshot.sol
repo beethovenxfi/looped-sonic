@@ -13,6 +13,8 @@ library VaultSnapshot {
         uint256 liquidationThreshold;
         uint256 ltv;
         uint256 vaultTotalSupply;
+        uint256 lstATokenBalance;
+        uint256 wethDebtTokenBalance;
     }
 
     function netAssetValueInEth(Data memory data) internal pure returns (uint256) {

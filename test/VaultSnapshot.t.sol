@@ -18,7 +18,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 50e18,
             liquidationThreshold: 8500,
             ltv: 8000,
-            vaultTotalSupply: 1000e18
+            vaultTotalSupply: 1000e18,
+            lstATokenBalance: 100e18,
+            wethDebtTokenBalance: 50e18
         });
     }
 
@@ -179,7 +181,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 0,
             liquidationThreshold: 8500,
             ltv: 8000,
-            vaultTotalSupply: totalSupply
+            vaultTotalSupply: totalSupply,
+            lstATokenBalance: 0,
+            wethDebtTokenBalance: 0
         });
 
         uint256 result = data.proportionalCollateralInLst(shares);
@@ -201,7 +205,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: debtAmount,
             liquidationThreshold: 8500,
             ltv: 8000,
-            vaultTotalSupply: totalSupply
+            vaultTotalSupply: totalSupply,
+            lstATokenBalance: 0,
+            wethDebtTokenBalance: 0
         });
 
         uint256 result = data.proportionalDebtInEth(shares);
@@ -224,7 +230,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: debtAmount,
             liquidationThreshold: 8500,
             ltv: ltv,
-            vaultTotalSupply: 1
+            vaultTotalSupply: 1,
+            lstATokenBalance: 0,
+            wethDebtTokenBalance: 0
         });
 
         uint256 result;
@@ -258,7 +266,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: debtAmount,
             liquidationThreshold: liquidationThreshold,
             ltv: 8000,
-            vaultTotalSupply: 1
+            vaultTotalSupply: 1,
+            lstATokenBalance: 0,
+            wethDebtTokenBalance: 0
         });
 
         uint256 result = data.healthFactor();
@@ -273,7 +283,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 0,
             liquidationThreshold: 0,
             ltv: 0,
-            vaultTotalSupply: 1
+            vaultTotalSupply: 1,
+            lstATokenBalance: 0,
+            wethDebtTokenBalance: 0
         });
 
         assertEq(zeroData.netAssetValueInEth(), 0);
@@ -292,7 +304,9 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 1,
             liquidationThreshold: 10000,
             ltv: 10000,
-            vaultTotalSupply: type(uint256).max
+            vaultTotalSupply: type(uint256).max,
+            lstATokenBalance: 0,
+            wethDebtTokenBalance: 0
         });
 
         assertEq(maxData.proportionalCollateralInLst(1), 1);
