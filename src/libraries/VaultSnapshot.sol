@@ -6,6 +6,9 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 library VaultSnapshot {
     using VaultSnapshot for Data;
 
+    uint256 public constant RAY = 1e27;
+    uint256 public constant BPS_DIVISOR = 10_000;
+
     struct Data {
         uint256 lstCollateralAmount;
         uint256 lstCollateralAmountInEth;
@@ -15,6 +18,8 @@ library VaultSnapshot {
         uint256 vaultTotalSupply;
         uint256 lstATokenBalance;
         uint256 wethDebtTokenBalance;
+        uint256 lstLiquidityIndex;
+        uint256 wethVariableBorrowIndex;
     }
 
     function netAssetValueInEth(Data memory data) internal pure returns (uint256) {
@@ -24,13 +29,29 @@ library VaultSnapshot {
     function proportionalCollateralInLst(Data memory data, uint256 shares) internal pure returns (uint256) {
         // This represents the amount of collateral in LST that the user can withdraw when redeeming their shares.
         // Rounding down rounds in the favor of the vault, decreasing the collateral available to be claimed.
-        return data.lstCollateralAmount * shares / data.vaultTotalSupply;
+        uint256 proportionalCollateral =
+            Math.mulDiv(data.lstCollateralAmount, shares, data.vaultTotalSupply, Math.Rounding.Floor);
+
+        uint256 liquidityIndexMaxError = data.lstLiquidityIndexMaxError();
+
+        if (proportionalCollateral <= liquidityIndexMaxError) {
+            return 0;
+        }
+
+        // Aave's precision loss is bounded by the liquidity index. To ensure the vault ends up with at least as much
+        // collateral as it expects, we subtract the max error from the proportional collateral, decreasing the
+        // collateral the user can withdraw.
+        return proportionalCollateral - liquidityIndexMaxError;
     }
 
     function proportionalDebtInEth(Data memory data, uint256 shares) internal pure returns (uint256) {
         // This represents the amount of debt in ETH that the user needs to repay when redeeming their shares.
         // Rounding up rounds in the favor of the vault, increasing the debt owed.
-        return Math.mulDiv(data.wethDebtAmount, shares, data.vaultTotalSupply, Math.Rounding.Ceil);
+        uint256 proportionalDebt = Math.mulDiv(data.wethDebtAmount, shares, data.vaultTotalSupply, Math.Rounding.Ceil);
+
+        // Aave's precision loss is bounded by the variable borrow index. To ensure the vault ends up with no more debt
+        // than it expects, we add the max error to the proportional debt, increasing the debt the user must repay.
+        return proportionalDebt + data.wethVariableBorrowIndexMaxError();
     }
 
     function availableBorrowsInEth(Data memory data) internal pure returns (uint256) {
@@ -38,7 +59,7 @@ library VaultSnapshot {
             return 0;
         }
 
-        uint256 maxDebt = data.lstCollateralAmountInEth * data.ltv / 10_000;
+        uint256 maxDebt = data.lstCollateralAmountInEth * data.ltv / BPS_DIVISOR;
 
         if (data.wethDebtAmount >= maxDebt) {
             return 0;
@@ -80,5 +101,20 @@ library VaultSnapshot {
         }
 
         return maxBorrowAmount;
+    }
+
+    // Aave's precision loss is bounded by the liquidity index, rounded up.
+    // With a liquidity index of 10e27, the max error is 10 wei.
+
+    function lstLiquidityIndexMaxError(Data memory data) internal pure returns (uint256) {
+        // On withdraws, the max error is calculated prior to the aave market update, so the liquidity index value
+        // could be stale. To ensure we always round in the favor of the vault, we add 1 to the max error.
+        return data.lstLiquidityIndex / RAY + 1;
+    }
+
+    function wethVariableBorrowIndexMaxError(Data memory data) internal pure returns (uint256) {
+        // On withdraws, the max error is calculated prior to the aave market update, so the variable borrow index
+        // value could be stale. To ensure we always round in the favor of the vault, we add 1 to the max error.
+        return data.wethVariableBorrowIndex / RAY + 1;
     }
 }

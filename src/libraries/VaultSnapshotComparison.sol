@@ -37,27 +37,27 @@ library VaultSnapshotComparison {
         }
     }
 
-    function checkDebtAfterWithdraw(Data memory data, uint256 sharesToRedeem, uint256 wethVariableBorrowIndex)
-        internal
-        pure
-        returns (bool)
-    {
+    function checkDebtAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
         uint256 expectedWethDebtTokenBurned = TokenMath.getVTokenBurnScaledAmount(
-            data.stateBefore.proportionalDebtInEth(sharesToRedeem), wethVariableBorrowIndex
+            data.stateBefore.proportionalDebtInEth(sharesToRedeem), data.stateAfter.wethVariableBorrowIndex
         );
+
+        if (data.stateBefore.wethDebtTokenBalance <= expectedWethDebtTokenBurned) {
+            return data.stateAfter.wethDebtTokenBalance == 0;
+        }
 
         return
             data.stateAfter.wethDebtTokenBalance == data.stateBefore.wethDebtTokenBalance - expectedWethDebtTokenBurned;
     }
 
-    function checkCollateralAfterWithdraw(Data memory data, uint256 sharesToRedeem, uint256 lstLiquidityIndex)
-        internal
-        pure
-        returns (bool)
-    {
+    function checkCollateralAfterWithdraw(Data memory data, uint256 sharesToRedeem) internal pure returns (bool) {
         uint256 expectedLstATokenBurned = TokenMath.getATokenBurnScaledAmount(
-            data.stateBefore.proportionalCollateralInLst(sharesToRedeem), lstLiquidityIndex
+            data.stateBefore.proportionalCollateralInLst(sharesToRedeem), data.stateAfter.lstLiquidityIndex
         );
+
+        if (data.stateBefore.lstATokenBalance <= expectedLstATokenBurned) {
+            return data.stateAfter.lstATokenBalance == 0;
+        }
 
         return data.stateAfter.lstATokenBalance == data.stateBefore.lstATokenBalance - expectedLstATokenBurned;
     }
