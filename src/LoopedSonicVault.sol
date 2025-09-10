@@ -213,11 +213,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         (msg.sender).functionCall(callbackData);
 
         data.stateAfter = getVaultSnapshot();
-        uint256 wethVariableBorrowIndex = AAVE_POOL.getReserveData(address(WETH)).variableBorrowIndex;
-        uint256 lstLiquidityIndex = AAVE_POOL.getReserveData(address(LST)).liquidityIndex;
 
-        require(data.checkDebtAfterWithdraw(sharesToRedeem, wethVariableBorrowIndex), InvalidDebtAfterWithdraw());
-        require(data.checkCollateralAfterWithdraw(sharesToRedeem, lstLiquidityIndex), InvalidCollateralAfterWithdraw());
+        require(data.checkDebtAfterWithdraw(sharesToRedeem), InvalidDebtAfterWithdraw());
+        require(data.checkCollateralAfterWithdraw(sharesToRedeem), InvalidCollateralAfterWithdraw());
 
         emit Withdraw(
             msg.sender,
@@ -472,6 +470,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.lstATokenBalance = IScaledBalanceToken(address(LST_A_TOKEN)).scaledBalanceOf(address(this));
         data.wethDebtTokenBalance =
             IScaledBalanceToken(address(WETH_VARIABLE_DEBT_TOKEN)).scaledBalanceOf(address(this));
+
+        data.wethVariableBorrowIndex = AAVE_POOL.getReserveData(address(WETH)).variableBorrowIndex;
+        data.lstLiquidityIndex = AAVE_POOL.getReserveData(address(LST)).liquidityIndex;
     }
 
     /**

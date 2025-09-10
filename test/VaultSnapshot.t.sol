@@ -20,7 +20,9 @@ contract VaultSnapshotTest is Test {
             ltv: 8000,
             vaultTotalSupply: 1000e18,
             lstATokenBalance: 100e18,
-            wethDebtTokenBalance: 50e18
+            wethDebtTokenBalance: 50e18,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: 1e27
         });
     }
 
@@ -48,14 +50,15 @@ contract VaultSnapshotTest is Test {
 
     function testProportionalCollateralInLst() public view {
         uint256 shares = snapshot.vaultTotalSupply / 10; // 10% of total shares
-        uint256 expected = snapshot.lstCollateralAmount * shares / snapshot.vaultTotalSupply;
+        uint256 expected =
+            snapshot.lstCollateralAmount * shares / snapshot.vaultTotalSupply - snapshot.lstLiquidityIndexMaxError();
         uint256 collateral = snapshot.proportionalCollateralInLst(shares);
         assertEq(collateral, expected);
     }
 
     function testProportionalCollateralInLstWithMaxShares() public view {
         uint256 shares = snapshot.vaultTotalSupply;
-        uint256 expected = snapshot.lstCollateralAmount;
+        uint256 expected = snapshot.lstCollateralAmount - snapshot.lstLiquidityIndexMaxError();
         uint256 collateral = snapshot.proportionalCollateralInLst(shares);
         assertEq(collateral, expected);
     }
@@ -64,7 +67,8 @@ contract VaultSnapshotTest is Test {
         snapshot.lstCollateralAmount = 100e18;
         snapshot.vaultTotalSupply = 3;
         uint256 shares = 1;
-        uint256 expected = snapshot.lstCollateralAmount * shares / snapshot.vaultTotalSupply;
+        uint256 expected =
+            snapshot.lstCollateralAmount * shares / snapshot.vaultTotalSupply - snapshot.lstLiquidityIndexMaxError();
         uint256 collateral = snapshot.proportionalCollateralInLst(shares);
         assertEq(collateral, expected);
 
@@ -75,14 +79,15 @@ contract VaultSnapshotTest is Test {
 
     function testProportionalDebtInEth() public view {
         uint256 shares = snapshot.vaultTotalSupply / 10; // 10% of total shares
-        uint256 expected = Math.mulDiv(snapshot.wethDebtAmount, shares, snapshot.vaultTotalSupply, Math.Rounding.Ceil);
+        uint256 expected = Math.mulDiv(snapshot.wethDebtAmount, shares, snapshot.vaultTotalSupply, Math.Rounding.Ceil)
+            + snapshot.wethVariableBorrowIndexMaxError();
         uint256 debt = snapshot.proportionalDebtInEth(shares);
         assertEq(debt, expected);
     }
 
     function testProportionalDebtInEthWithMaxShares() public view {
         uint256 shares = snapshot.vaultTotalSupply;
-        uint256 expected = snapshot.wethDebtAmount;
+        uint256 expected = snapshot.wethDebtAmount + snapshot.wethVariableBorrowIndexMaxError();
         uint256 debt = snapshot.proportionalDebtInEth(shares);
         assertEq(debt, expected);
     }
@@ -91,7 +96,8 @@ contract VaultSnapshotTest is Test {
         snapshot.wethDebtAmount = 100e18;
         snapshot.vaultTotalSupply = 3;
         uint256 shares = 1;
-        uint256 expected = Math.mulDiv(snapshot.wethDebtAmount, shares, snapshot.vaultTotalSupply, Math.Rounding.Ceil);
+        uint256 expected = Math.mulDiv(snapshot.wethDebtAmount, shares, snapshot.vaultTotalSupply, Math.Rounding.Ceil)
+            + snapshot.wethVariableBorrowIndexMaxError();
         uint256 debt = snapshot.proportionalDebtInEth(shares);
         assertEq(debt, expected);
 
@@ -183,21 +189,25 @@ contract VaultSnapshotTest is Test {
             ltv: 8000,
             vaultTotalSupply: totalSupply,
             lstATokenBalance: 0,
-            wethDebtTokenBalance: 0
+            wethDebtTokenBalance: 0,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: 1e27
         });
 
         uint256 result = data.proportionalCollateralInLst(shares);
         assertLe(result, lstAmount);
-
-        if (shares == totalSupply) {
-            assertEq(result, lstAmount);
-        }
     }
 
-    function testFuzzProportionalDebtInEth(uint256 debtAmount, uint256 shares, uint256 totalSupply) public {
+    function testFuzzProportionalDebtInEth(
+        uint256 debtAmount,
+        uint256 shares,
+        uint256 totalSupply,
+        uint256 wethVariableBorrowIndex
+    ) public {
         debtAmount = bound(debtAmount, 0, type(uint128).max);
         totalSupply = bound(totalSupply, 1, type(uint128).max);
         shares = bound(shares, 0, totalSupply);
+        wethVariableBorrowIndex = bound(wethVariableBorrowIndex, 1e27, 100e27);
 
         VaultSnapshot.Data memory data = VaultSnapshot.Data({
             lstCollateralAmount: 0,
@@ -207,15 +217,15 @@ contract VaultSnapshotTest is Test {
             ltv: 8000,
             vaultTotalSupply: totalSupply,
             lstATokenBalance: 0,
-            wethDebtTokenBalance: 0
+            wethDebtTokenBalance: 0,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: wethVariableBorrowIndex
         });
 
         uint256 result = data.proportionalDebtInEth(shares);
-        assertGe(result, debtAmount * shares / totalSupply);
 
-        if (shares == totalSupply) {
-            assertEq(result, debtAmount);
-        }
+        // always round in the favor of the vault
+        assertGt(result, debtAmount * shares / totalSupply);
     }
 
     /// forge-config: default.allow_internal_expect_revert = true
@@ -232,7 +242,9 @@ contract VaultSnapshotTest is Test {
             ltv: ltv,
             vaultTotalSupply: 1,
             lstATokenBalance: 0,
-            wethDebtTokenBalance: 0
+            wethDebtTokenBalance: 0,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: 1e27
         });
 
         uint256 result;
@@ -268,7 +280,9 @@ contract VaultSnapshotTest is Test {
             ltv: 8000,
             vaultTotalSupply: 1,
             lstATokenBalance: 0,
-            wethDebtTokenBalance: 0
+            wethDebtTokenBalance: 0,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: 1e27
         });
 
         uint256 result = data.healthFactor();
@@ -285,12 +299,14 @@ contract VaultSnapshotTest is Test {
             ltv: 0,
             vaultTotalSupply: 1,
             lstATokenBalance: 0,
-            wethDebtTokenBalance: 0
+            wethDebtTokenBalance: 0,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: 1e27
         });
 
         assertEq(zeroData.netAssetValueInEth(), 0);
         assertEq(zeroData.proportionalCollateralInLst(100), 0);
-        assertEq(zeroData.proportionalDebtInEth(100), 0);
+        assertEq(zeroData.proportionalDebtInEth(100), 2);
         assertEq(zeroData.availableBorrowsInEth(), 0);
         assertEq(zeroData.liquidationThresholdScaled18(), 0);
         assertEq(zeroData.healthFactor(), type(uint256).max);
@@ -306,11 +322,13 @@ contract VaultSnapshotTest is Test {
             ltv: 10000,
             vaultTotalSupply: type(uint256).max,
             lstATokenBalance: 0,
-            wethDebtTokenBalance: 0
+            wethDebtTokenBalance: 0,
+            lstLiquidityIndex: 1e27,
+            wethVariableBorrowIndex: 1e27
         });
 
-        assertEq(maxData.proportionalCollateralInLst(1), 1);
-        assertEq(maxData.proportionalDebtInEth(1), 1);
+        assertEq(maxData.proportionalCollateralInLst(1), 0);
+        assertEq(maxData.proportionalDebtInEth(1), 3);
 
         vm.expectRevert();
         maxData.healthFactor();

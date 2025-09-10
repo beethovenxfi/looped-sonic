@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {LoopedSonicVault} from "../src/LoopedSonicVault.sol";
 import {LoopedSonicVaultBase} from "./LoopedSonicVaultBase.t.sol";
 import {VaultSnapshot} from "../src/libraries/VaultSnapshot.sol";
 import {VaultSnapshotComparison} from "../src/libraries/VaultSnapshotComparison.sol";

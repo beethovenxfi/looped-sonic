@@ -242,7 +242,7 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
 
         assertEq(sharesAfter, sharesBefore - sharesToRedeem, "Shares should be burned");
 
-        assertApproxEqAbs(data.stateAfter.netAssetValueInEth(), expectedNav, 4, "NAV should decrease proportionally");
+        assertApproxEqAbs(data.stateAfter.netAssetValueInEth(), expectedNav, 6, "NAV should decrease proportionally");
     }
 
     function _invalidWithdrawCallback(address user, uint256 sharesToRedeem, uint256 collateralInLst, uint256 debtInEth)
