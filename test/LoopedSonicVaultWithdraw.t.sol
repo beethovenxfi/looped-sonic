@@ -195,19 +195,22 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
         );
     }
 
-    function testWithdrawDebtIncreasesAsTimePasses() public {
+    function testWithdrawNavDecreasesAsTimePasses() public {
         uint256 shares = _setupStandardDeposit();
         uint256 sharesToRedeem = shares / 10;
         uint256 donateAmount = 100 ether;
 
         (uint256 collateralInLst, uint256 debtInEth) = vault.getCollateralAndDebtForShares(sharesToRedeem);
+        VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
 
-        vm.warp(block.timestamp + 10 days);
+        vm.warp(block.timestamp + 100 days);
 
         (uint256 collateralInLstAfter, uint256 debtInEthAfter) = vault.getCollateralAndDebtForShares(sharesToRedeem);
 
+        VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
+
         assertEq(collateralInLst, collateralInLstAfter, "Collateral should not change");
-        assertGt(debtInEthAfter, debtInEth, "Debt should increase");
+        assertGt(snapshotBefore.netAssetValueInEth(), snapshotAfter.netAssetValueInEth(), "Nav should decrease");
     }
 
     function testWithdrawSuccessFuzz(uint256 depositAmount, uint256 sharesToRedeem) public {
@@ -231,6 +234,10 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
         data.stateBefore = vault.getVaultSnapshot();
         uint256 nav = data.stateBefore.netAssetValueInEth();
         uint256 expectedNav = nav - (nav * sharesToRedeem / vault.totalSupply());
+        uint256 expectedCollateralAfter = data.stateBefore.lstCollateralAmount
+            - (data.stateBefore.lstCollateralAmount * sharesToRedeem / vault.totalSupply());
+        uint256 expectedDebtAfter =
+            data.stateBefore.wethDebtAmount - (data.stateBefore.wethDebtAmount * sharesToRedeem / vault.totalSupply());
 
         (uint256 expectedCollateralInLst, uint256 expectedDebtInEth) =
             vault.getCollateralAndDebtForShares(sharesToRedeem);
@@ -243,6 +250,15 @@ contract LoopedSonicVaultWithdrawTest is LoopedSonicVaultBase {
         assertEq(sharesAfter, sharesBefore - sharesToRedeem, "Shares should be burned");
 
         assertApproxEqAbs(data.stateAfter.netAssetValueInEth(), expectedNav, 6, "NAV should decrease proportionally");
+        assertGe(
+            data.stateAfter.lstCollateralAmount,
+            expectedCollateralAfter,
+            "Collatereal rounding should always be in favor of the vault"
+        );
+        assertLe(
+            data.stateAfter.wethDebtAmount, expectedDebtAfter, "Debt rounding should always be in favor of the vault"
+        );
+        assertGe(data.stateAfter.netAssetValueInEth(), expectedNav - 1, "The nav should decrease no more than 1 wei");
     }
 
     function _invalidWithdrawCallback(address user, uint256 sharesToRedeem, uint256 collateralInLst, uint256 debtInEth)

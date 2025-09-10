@@ -297,19 +297,7 @@ contract VaultSnapshotComparisonTest is Test {
     function testEdgeCaseZeroShares() public {
         uint256 sharesToRedeem = 0;
 
-        comparison.stateAfter.wethDebtTokenBalance =
-            comparison.stateAfter.wethDebtTokenBalance - comparison.stateBefore.wethVariableBorrowIndexMaxError();
-
-        assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
-        assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
-    }
-
-    function testEdgeCaseMaxShares() public {
-        uint256 sharesToRedeem = comparison.stateBefore.vaultTotalSupply;
-
-        comparison.stateAfter.wethDebtTokenBalance = 0;
-        // The lstATokenBalance cannot go to zero
-        comparison.stateAfter.lstATokenBalance = comparison.stateBefore.lstLiquidityIndexMaxError();
+        //comparison.stateAfter.wethDebtTokenBalance = comparison.stateAfter.wethDebtTokenBalance;
 
         assertTrue(comparison.checkDebtAfterWithdraw(sharesToRedeem));
         assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));

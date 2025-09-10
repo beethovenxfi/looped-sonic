@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {TokenMath} from "aave-v3-origin/protocol/libraries/helpers/TokenMath.sol";
 
 library VaultSnapshot {
     using VaultSnapshot for Data;
@@ -27,31 +28,35 @@ library VaultSnapshot {
     }
 
     function proportionalCollateralInLst(Data memory data, uint256 shares) internal pure returns (uint256) {
-        // This represents the amount of collateral in LST that the user can withdraw when redeeming their shares.
         // Rounding down rounds in the favor of the vault, decreasing the collateral available to be claimed.
-        uint256 proportionalCollateral =
-            Math.mulDiv(data.lstCollateralAmount, shares, data.vaultTotalSupply, Math.Rounding.Floor);
+        uint256 proportionalLstAToken =
+            Math.mulDiv(data.lstATokenBalance, shares, data.vaultTotalSupply, Math.Rounding.Floor);
 
-        uint256 liquidityIndexMaxError = data.lstLiquidityIndexMaxError();
+        uint256 proportionalCollateral = TokenMath.getATokenBalance(proportionalLstAToken, data.lstLiquidityIndex);
 
-        if (proportionalCollateral <= liquidityIndexMaxError) {
+        if (proportionalCollateral == 0) {
             return 0;
         }
 
-        // Aave's precision loss is bounded by the liquidity index. To ensure the vault ends up with at least as much
-        // collateral as it expects, we subtract the max error from the proportional collateral, decreasing the
-        // collateral the user can withdraw.
-        return proportionalCollateral - liquidityIndexMaxError;
+        // As this is queried prior to the withdraw, the lstLiquidityIndex is potentially stale.
+        // To ensure vault solvency, we always subtract an additional wei.
+        return proportionalCollateral - 1;
     }
 
     function proportionalDebtInEth(Data memory data, uint256 shares) internal pure returns (uint256) {
-        // This represents the amount of debt in ETH that the user needs to repay when redeeming their shares.
         // Rounding up rounds in the favor of the vault, increasing the debt owed.
-        uint256 proportionalDebt = Math.mulDiv(data.wethDebtAmount, shares, data.vaultTotalSupply, Math.Rounding.Ceil);
+        uint256 proportionalDebtToken =
+            Math.mulDiv(data.wethDebtTokenBalance, shares, data.vaultTotalSupply, Math.Rounding.Ceil);
 
-        // Aave's precision loss is bounded by the variable borrow index. To ensure the vault ends up with no more debt
-        // than it expects, we add the max error to the proportional debt, increasing the debt the user must repay.
-        return proportionalDebt + data.wethVariableBorrowIndexMaxError();
+        uint256 proportionalDebt = TokenMath.getVTokenBalance(proportionalDebtToken, data.wethVariableBorrowIndex);
+
+        if (proportionalDebt == 0) {
+            return 0;
+        }
+
+        // As this is queried prior to the withdraw, the wethVariableBorrowIndex is potentially stale.
+        // To ensure vault solvency, we always add an additional 1 wei.
+        return proportionalDebt + 1;
     }
 
     function availableBorrowsInEth(Data memory data) internal pure returns (uint256) {
@@ -101,20 +106,5 @@ library VaultSnapshot {
         }
 
         return maxBorrowAmount;
-    }
-
-    // Aave's precision loss is bounded by the liquidity index, rounded up.
-    // With a liquidity index of 10e27, the max error is 10 wei.
-
-    function lstLiquidityIndexMaxError(Data memory data) internal pure returns (uint256) {
-        // On withdraws, the max error is calculated prior to the aave market update, so the liquidity index value
-        // could be stale. To ensure we always round in the favor of the vault, we add 1 to the max error.
-        return data.lstLiquidityIndex / RAY + 1;
-    }
-
-    function wethVariableBorrowIndexMaxError(Data memory data) internal pure returns (uint256) {
-        // On withdraws, the max error is calculated prior to the aave market update, so the variable borrow index
-        // value could be stale. To ensure we always round in the favor of the vault, we add 1 to the max error.
-        return data.wethVariableBorrowIndex / RAY + 1;
     }
 }
