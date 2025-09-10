@@ -32,6 +32,7 @@ library VaultSnapshot {
         uint256 proportionalLstAToken =
             Math.mulDiv(data.lstATokenBalance, shares, data.vaultTotalSupply, Math.Rounding.Floor);
 
+        // We use Aave's TokenMath library to get the actual LST amount from the scaled amount.
         uint256 proportionalCollateral = TokenMath.getATokenBalance(proportionalLstAToken, data.lstLiquidityIndex);
 
         if (proportionalCollateral == 0) {
@@ -48,6 +49,7 @@ library VaultSnapshot {
         uint256 proportionalDebtToken =
             Math.mulDiv(data.wethDebtTokenBalance, shares, data.vaultTotalSupply, Math.Rounding.Ceil);
 
+        // We use Aave's TokenMath library to get the actual debt amount from the scaled amount.
         uint256 proportionalDebt = TokenMath.getVTokenBalance(proportionalDebtToken, data.wethVariableBorrowIndex);
 
         if (proportionalDebt == 0) {
