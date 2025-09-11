@@ -24,6 +24,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     using VaultSnapshotComparison for VaultSnapshotComparison.Data;
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    bytes32 public constant UNWIND_ROLE = keccak256("UNWIND_ROLE");
 
     uint256 public constant AAVE_VARIABLE_INTEREST_RATE = 2;
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18; // 0.01
@@ -272,9 +273,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function unwind(uint256 lstAmountToWithdraw, address contractToCall, bytes calldata data)
+    function unwind(uint256 lstAmountToWithdraw, bytes calldata data)
         external
-        onlyRole(OPERATOR_ROLE)
+        onlyRole(UNWIND_ROLE)
         whenInitialized
         acquireLock
     {
@@ -284,22 +285,24 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         // Aave will revert any withdraw that would cause the health factor to drop below 1.0
         aaveWithdrawLst(lstAmountToWithdraw);
 
-        sendLst(contractToCall, lstAmountToWithdraw);
+        sendLst(msg.sender, lstAmountToWithdraw);
 
         // The redemption amount is the true value of the collateral, in ETH terms. It is the amount of WETH that
         // we would receive from doing the time delayed redemption of the LST.
         uint256 redemptionAmount = LST.convertToAssets(lstAmountToWithdraw);
 
         // Disallow msg.sender from calling into the vault during the scope of the callback
+        // This ensures the operator cannot impact vault state during the callback.
         allowedCaller = address(0);
 
         // The callback will sell the LST and return the amount of WETH received.
-        bytes memory result = (contractToCall).functionCall(data);
+        bytes memory result = (msg.sender).functionCall(data);
         uint256 wethAmount = abi.decode(result, (uint256));
 
-        allowedCaller = msg.sender;
-
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWeth());
+
+        // Reassign the allowedCaller so we can call the vault primitives below
+        allowedCaller = msg.sender;
 
         // To avoid special casing the unwind flow, we pull the WETH from the operator despite having sent the LST
         // to the contractToCall. This is a misdirection, but it is limited to the operator, a granted role.

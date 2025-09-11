@@ -162,9 +162,8 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vm.prank(admin);
         vault.setUnwindsPaused(true);
 
-        vm.startPrank(operator);
         vm.expectRevert(abi.encodeWithSignature("UnwindsPaused()"));
-        vault.unwind(1 ether, address(this), "");
+        vault.unwind(1 ether, "");
         vm.stopPrank();
     }
 
@@ -192,9 +191,8 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vm.stopPrank();
 
         // Test unwind is blocked
-        vm.startPrank(operator);
         vm.expectRevert(abi.encodeWithSignature("UnwindsPaused()"));
-        vault.unwind(1 ether, address(this), "");
+        vault.unwind(1 ether, "");
         vm.stopPrank();
     }
 

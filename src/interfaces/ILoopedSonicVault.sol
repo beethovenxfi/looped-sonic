@@ -231,10 +231,9 @@ interface ILoopedSonicVault {
      * @notice Unwinds vault position by withdrawing LST collateral and selling externally (operator only)
      * @dev Withdraws LST from Aave, sends to caller, executes external sale, repays WETH debt
      * @param lstAmountToWithdraw The amount of LST collateral to withdraw and sell
-     * @param contractToCall The external contract to handle LST liquidation
      * @param data The calldata for the external liquidation contract
      */
-    function unwind(uint256 lstAmountToWithdraw, address contractToCall, bytes calldata data) external;
+    function unwind(uint256 lstAmountToWithdraw, bytes calldata data) external;
 
     // ---------------------------------------------------------------------
     // Vault primitives (only callable during active lock)

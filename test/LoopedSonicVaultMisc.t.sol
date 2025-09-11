@@ -104,9 +104,8 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._unwindAndChangeLstRate.selector, lstAmountToWithdraw);
 
-        vm.prank(operator);
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.LstRateChanged.selector));
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
     }
 
     function _unwindAndChangeLstRate(uint256 lstAmount) external returns (uint256 wethAmount) {
@@ -116,14 +115,10 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         // burn the LST
         LST.transfer(address(1), lstAmount);
 
-        vm.prank(operator);
         WETH.approve(address(vault), type(uint256).max);
 
         vm.deal(address(this), wethAmount);
         WETH.deposit{value: wethAmount}();
-
-        // transfer the WETH to the operator
-        WETH.transfer(address(operator), wethAmount);
 
         uint256 donateAmount = 1_000 ether;
 
