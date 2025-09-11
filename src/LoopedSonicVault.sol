@@ -304,9 +304,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         // Reassign the allowedCaller so we can call the vault primitives below
         allowedCaller = msg.sender;
 
-        // To avoid special casing the unwind flow, we pull the WETH from the operator despite having sent the LST
-        // to the contractToCall. This is a misdirection, but it is limited to the operator, a granted role.
-        // The contractToCall is expected to send the WETH to the operator.
         pullWeth(wethAmount);
 
         aaveRepayWeth(wethAmount);
