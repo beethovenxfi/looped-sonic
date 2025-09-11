@@ -55,6 +55,7 @@ contract LoopedSonicVaultBase is Test {
     function _setupRoles() internal {
         vm.startPrank(admin);
         vault.grantRole(vault.OPERATOR_ROLE(), operator);
+        vault.grantRole(vault.UNWIND_ROLE(), address(this));
         vm.stopPrank();
     }
 
@@ -193,9 +194,8 @@ contract LoopedSonicVaultBase is Test {
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
         vault.withdraw(1e18, abi.encodeWithSelector(this.emptyCallback.selector));
 
-        vm.prank(operator);
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.unwind(1e18, address(this), abi.encodeWithSelector(this.emptyCallback.selector));
+        vault.unwind(1e18, abi.encodeWithSelector(this.emptyCallback.selector));
     }
 
     function _attemptReadOnlyReentrancy() public {

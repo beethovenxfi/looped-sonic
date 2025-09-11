@@ -21,7 +21,6 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         vm.deal(address(this), 1000 ether);
         WETH.deposit{value: 1000 ether}();
 
-        vm.prank(operator);
         WETH.approve(address(vault), type(uint256).max);
     }
 
@@ -36,10 +35,9 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         uint256 expectedWethAmount = LST.convertToAssets(lstAmountToWithdraw);
 
         vm.expectEmit(true, true, true, false);
-        emit ILoopedSonicVault.Unwind(operator, lstAmountToWithdraw, expectedWethAmount, 0, 0, 0);
+        emit ILoopedSonicVault.Unwind(address(this), lstAmountToWithdraw, expectedWethAmount, 0, 0, 0);
 
-        vm.prank(operator);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
@@ -71,7 +69,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         );
     }
 
-    function testUnwindRevertsWithoutOperatorRole() public {
+    function testUnwindRevertsWithoutUnwindRole() public {
         _setupStandardDeposit();
 
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
@@ -81,12 +79,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
             abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, lstAmountToWithdraw);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user1, vault.OPERATOR_ROLE()
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user1, vault.UNWIND_ROLE())
         );
         vm.prank(user1);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
     }
 
     function testUnwindRevertsWhenNotInitialized() public {
@@ -94,14 +90,13 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         LoopedSonicVault uninitializedVault = _getUninitializedVault();
 
         vm.startPrank(admin);
-        uninitializedVault.grantRole(uninitializedVault.OPERATOR_ROLE(), operator);
+        uninitializedVault.grantRole(uninitializedVault.UNWIND_ROLE(), address(this));
         vm.stopPrank();
 
         bytes memory liquidationData = abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, 1 ether);
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotInitialized.selector));
-        vm.prank(operator);
-        uninitializedVault.unwind(1 ether, address(this), liquidationData);
+        uninitializedVault.unwind(1 ether, liquidationData);
     }
 
     function testUnwindRevertsWithZeroAmount() public {
@@ -110,8 +105,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData = abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, 0);
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.UnwindAmountBelowMin.selector));
-        vm.prank(operator);
-        vault.unwind(0, address(this), liquidationData);
+        vault.unwind(0, liquidationData);
     }
 
     function testUnwindRevertsWithExcessiveAmount() public {
@@ -124,8 +118,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
             abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, excessiveAmount);
 
         vm.expectRevert();
-        vm.prank(operator);
-        vault.unwind(excessiveAmount, address(this), liquidationData);
+        vault.unwind(excessiveAmount, liquidationData);
     }
 
     function testUnwindWithMaxAmount() public {
@@ -140,8 +133,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, maxWithdrawableInLst);
 
-        vm.prank(operator);
-        vault.unwind(maxWithdrawableInLst, address(this), liquidationData);
+        vault.unwind(maxWithdrawableInLst, liquidationData);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
@@ -162,10 +154,9 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         uint256 expectedWethAmount = LST.convertToAssets(lstAmountToWithdraw) - slippageAmount;
 
         vm.expectEmit(true, true, true, false);
-        emit ILoopedSonicVault.Unwind(operator, lstAmountToWithdraw, expectedWethAmount, 0, 0, 0);
+        emit ILoopedSonicVault.Unwind(address(this), lstAmountToWithdraw, expectedWethAmount, 0, 0, 0);
 
-        vm.prank(operator);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
@@ -208,8 +199,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._liquidateLstWithSlippage.selector, lstAmountToWithdraw, slippageAmount);
 
-        vm.prank(operator);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
@@ -225,8 +215,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._liquidateLstWithSlippage.selector, lstAmountToWithdraw, 1);
 
-        vm.prank(operator);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
 
         VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
 
@@ -244,9 +233,8 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._liquidateLstWithSlippage.selector, lstAmountToWithdraw, slippageAmount);
 
-        vm.prank(operator);
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.NotEnoughWeth.selector));
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
     }
 
     function testUnwindRevertsWithInvalidContract() public {
@@ -258,9 +246,8 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         // Try to call a non-existent function
         bytes memory invalidData = abi.encodeWithSelector(bytes4(0x12345678), lstAmountToWithdraw);
 
-        vm.prank(operator);
         vm.expectRevert();
-        vault.unwind(lstAmountToWithdraw, address(this), invalidData);
+        vault.unwind(lstAmountToWithdraw, invalidData);
     }
 
     function testUnwindRevertsOnReentrancy() public {
@@ -272,8 +259,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._unwindAttemptReentrancy.selector, lstAmountToWithdraw);
 
-        vm.prank(operator);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
     }
 
     function testUnwindRevertsOnReadOnlyReentrancy() public {
@@ -285,8 +271,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         bytes memory liquidationData =
             abi.encodeWithSelector(this._unwindWithReadOnlyReentrancy.selector, lstAmountToWithdraw);
 
-        vm.prank(operator);
-        vault.unwind(lstAmountToWithdraw, address(this), liquidationData);
+        vault.unwind(lstAmountToWithdraw, liquidationData);
     }
 
     function _liquidateLstAtRedemptionRate(uint256 lstAmount) external returns (uint256 wethAmount) {
@@ -295,9 +280,6 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         // burn the LST
         LST.transfer(address(1), lstAmount);
-
-        // transfer the WETH to the operator
-        WETH.transfer(address(operator), wethAmount);
 
         return wethAmount;
     }
@@ -311,9 +293,6 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         // burn the LST
         LST.transfer(address(1), lstAmount);
 
-        // transfer the WETH to the operator
-        WETH.transfer(address(operator), wethAmount);
-
         return wethAmount;
     }
 
@@ -322,9 +301,6 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
         _attemptReentrancy();
 
-        // transfer the WETH to the operator
-        WETH.transfer(address(operator), wethAmount);
-
         return wethAmount;
     }
 
@@ -332,9 +308,6 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         wethAmount = LST.convertToAssets(lstAmount);
 
         _attemptReadOnlyReentrancy();
-
-        // transfer the WETH to the operator
-        WETH.transfer(address(operator), wethAmount);
 
         return wethAmount;
     }
