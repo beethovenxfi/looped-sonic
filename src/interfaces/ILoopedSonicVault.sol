@@ -200,6 +200,7 @@ interface ILoopedSonicVault {
     error SharesExceedTotalSupply();
     error LstRateChanged();
     error TotalSupplyNotZero();
+    error AmountGreaterThanWethDebt();
 
     // ---------------------------------------------------------------------
     // Primary vault operations

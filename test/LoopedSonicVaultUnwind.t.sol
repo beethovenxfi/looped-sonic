@@ -222,6 +222,39 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1, 2);
     }
 
+    function testUnwindMorethanDebtFailure() public {
+        _setupStandardDeposit();
+        VaultSnapshot.Data memory initSnapshot = vault.getVaultSnapshot();
+        uint256 wethDebtAmount = initSnapshot.wethDebtAmount;
+        while (wethDebtAmount > 0) {
+            VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+
+            uint256 collateralMin = snapshotBefore.wethDebtAmount * 1e18 / snapshotBefore.liquidationThresholdScaled18();
+            uint256 maxWithdrawable = snapshotBefore.lstCollateralAmountInEth - collateralMin;
+
+            uint256 maxWithdrawableInLst = LST.convertToShares(maxWithdrawable) * 0.9999999e18 / 1e18;
+
+            bytes memory liquidationData =
+                abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, maxWithdrawableInLst);
+
+            if (maxWithdrawable > snapshotBefore.wethDebtAmount) {
+                vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.AmountGreaterThanWethDebt.selector));
+                vault.unwind(maxWithdrawableInLst, liquidationData);
+                break;
+            } else {
+                vault.unwind(maxWithdrawableInLst, liquidationData);
+            }
+
+            VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
+            assertApproxEqAbs(
+                snapshotAfter.wethDebtAmount,
+                snapshotBefore.wethDebtAmount - LST.convertToAssets(maxWithdrawableInLst),
+                1,
+                "WETH debt should decrease correctly"
+            );
+        }
+    }
+
     function testUnwindWithTooMuchSlippage() public {
         _setupStandardDeposit();
 

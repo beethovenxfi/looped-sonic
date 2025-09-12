@@ -120,9 +120,10 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
         uint256 wethOut = convertLstToWeth(params.collateralInLst, params.convertLstToWethData);
 
-        VAULT.pullWeth(params.debtInEth);
-
-        VAULT.aaveRepayWeth(params.debtInEth);
+        if (params.debtInEth > 0) {
+            VAULT.pullWeth(params.debtInEth);
+            VAULT.aaveRepayWeth(params.debtInEth);
+        }
 
         uint256 amountToRecipient = wethOut - params.debtInEth;
 
@@ -184,9 +185,10 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
     }
 
     function withdrawWithFlashLoanCallback(WithdrawParams memory params, uint256 flashLoanFee) external onlyVault {
-        VAULT.pullWeth(params.debtInEth);
-
-        VAULT.aaveRepayWeth(params.debtInEth);
+        if (params.debtInEth > 0) {
+            VAULT.pullWeth(params.debtInEth);
+            VAULT.aaveRepayWeth(params.debtInEth);
+        }
 
         VAULT.aaveWithdrawLst(params.collateralInLst);
 
