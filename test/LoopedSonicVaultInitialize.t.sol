@@ -110,8 +110,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             admin
         );
 
@@ -122,8 +122,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             admin
         );
 
@@ -134,8 +134,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(0),
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             admin
         );
 
@@ -146,8 +146,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             address(0)
         );
     }
@@ -160,8 +160,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR - 1e18,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             admin
         );
     }
@@ -174,8 +174,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.03e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE + 1e18,
             admin
         );
     }

@@ -27,6 +27,9 @@ contract LoopedSonicVaultBase is Test {
     LoopedSonicVault public vault;
     AaveCapoRateProvider public aaveCapoRateProvider;
 
+    uint256 constant INITIAL_TARGET_HEALTH_FACTOR = 1.3e18;
+    uint256 constant INITIAL_ALLOWED_UNWIND_SLIPPAGE = 0.007e18; // 0.7%
+
     address public admin = makeAddr("admin");
     address public operator = makeAddr("operator");
     address public user1 = makeAddr("user1");
@@ -47,8 +50,8 @@ contract LoopedSonicVaultBase is Test {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             admin
         );
         WETH.approve(address(vault), type(uint256).max);
@@ -196,8 +199,8 @@ contract LoopedSonicVaultBase is Test {
             AAVE_POOL,
             E_MODE_CATEGORY_ID,
             address(aaveCapoRateProvider),
-            1.3e18,
-            0.007e18,
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
             admin
         );
     }
