@@ -125,12 +125,13 @@ contract LoopedSonicVaultBase is Test {
         uint256 debtInEth,
         bytes memory optionalCallbackData
     ) external {
-        vm.deal(address(this), debtInEth);
-        WETH.deposit{value: debtInEth}();
+        if (debtInEth > 0) {
+            vm.deal(address(this), debtInEth);
+            WETH.deposit{value: debtInEth}();
 
-        vault.pullWeth(debtInEth);
-
-        vault.aaveRepayWeth(debtInEth);
+            vault.pullWeth(debtInEth);
+            vault.aaveRepayWeth(debtInEth);
+        }
 
         vault.aaveWithdrawLst(collateralInLst);
         uint256 collateralInEth = vault.LST().convertToAssets(collateralInLst);
