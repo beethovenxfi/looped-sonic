@@ -87,7 +87,7 @@ contract VaultSnapshotTest is Test {
 
     function testProportionalDebtInEthWithMaxShares() public view {
         uint256 shares = snapshot.vaultTotalSupply;
-        uint256 expected = snapshot.wethDebtAmount + 1;
+        uint256 expected = snapshot.wethDebtAmount;
         uint256 debt = snapshot.proportionalDebtInEth(shares);
         assertEq(debt, expected);
     }

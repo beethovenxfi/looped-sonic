@@ -56,6 +56,10 @@ library VaultSnapshot {
             return 0;
         }
 
+        if (proportionalDebtToken == data.wethDebtTokenBalance) {
+            return proportionalDebt;
+        }
+
         // As this is queried prior to the withdraw, the wethVariableBorrowIndex is potentially stale.
         // To ensure vault solvency, we always add an additional 1 wei.
         return proportionalDebt + 1;
