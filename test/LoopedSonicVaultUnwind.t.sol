@@ -290,7 +290,6 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         VaultSnapshot.Data memory snapshotAfterUnwind = vault.getVaultSnapshot();
         if (snapshotAfterUnwind.wethDebtAmount > 0) {
             // Repay the remainder manually
-
             vm.deal(address(this), snapshotAfterUnwind.wethDebtAmount);
             WETH.deposit{value: snapshotAfterUnwind.wethDebtAmount}();
             WETH.approve(address(vault.AAVE_POOL()), snapshotAfterUnwind.wethDebtAmount);
