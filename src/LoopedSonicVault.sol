@@ -35,6 +35,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
     uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
+    uint256 public constant MAX_PROTOCOL_FEE_PERCENT = 0.5e18; // 50%
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
@@ -50,6 +51,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
     uint256 public targetHealthFactor = 1.3e18;
     uint256 public allowedUnwindSlippagePercent = 0.007e18; // 0.7%
+
+    uint256 public protocolFeePercent;
+    uint256 public athRate;
+    address public treasuryAddress;
 
     bool public depositsPaused = false;
     bool public withdrawsPaused = false;
@@ -165,6 +170,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(!depositsPaused, DepositsPaused());
         require(receiver != address(0), ZeroAddress());
 
+        _payProtocolFees();
+
         VaultSnapshotComparison.Data memory data;
 
         // Store the vault state before the callback performs the deposit
@@ -181,7 +188,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        shares = data.stateAfter.vaultTotalSupply * navIncreaseEth / data.stateBefore.netAssetValueInEth();
+        shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
@@ -202,6 +209,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     function withdraw(uint256 sharesToRedeem, bytes calldata callbackData) external whenInitialized acquireLock {
         require(!withdrawsPaused, WithdrawsPaused());
         require(sharesToRedeem >= MIN_SHARES_TO_REDEEM, NotEnoughShares());
+
+        _payProtocolFees();
 
         VaultSnapshotComparison.Data memory data;
 
@@ -258,6 +267,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _mint(address(1), sharesToMint);
 
         isInitialized = true;
+
+        // Set the initial athRate. Total supply was zero before, so sharesToMint is the total supply
+        athRate = _getRate(sharesToMint);
 
         emit Initialize(
             msg.sender,
@@ -465,7 +477,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.ltv = collateralConfig.ltv;
         data.liquidationThreshold = collateralConfig.liquidationThreshold;
 
-        data.vaultTotalSupply = totalSupply();
+        data.vaultTotalSupply = actualSupply();
 
         data.lstATokenBalance = IScaledBalanceToken(address(LST_A_TOKEN)).scaledBalanceOf(address(this));
         data.wethDebtTokenBalance =
@@ -487,7 +499,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 totalShares = totalSupply();
+        uint256 totalShares = actualSupply();
 
         if (assetsTotal == 0 || totalShares == 0) {
             return shares;
@@ -501,7 +513,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function convertToShares(uint256 assets) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 totalShares = totalSupply();
+        uint256 totalShares = actualSupply();
 
         if (assetsTotal == 0 || totalShares == 0) {
             return assets;
@@ -515,7 +527,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function getRate() public view whenNotLocked returns (uint256) {
         // The rate is the amount of assets that 1 share is worth
-        return convertToAssets(1 ether);
+        return _getRate(actualSupply());
     }
 
     /**
@@ -551,6 +563,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return LST_A_TOKEN.balanceOf(address(this));
     }
 
+    function getAaveLstCollateralAmountInEth() public view returns (uint256) {
+        return aaveCapoRateProvider.convertToAssets(getAaveLstCollateralAmount());
+    }
+
     /**
      * @inheritdoc ILoopedSonicVault
      */
@@ -576,7 +592,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      * @inheritdoc ILoopedSonicVault
      */
     function getInvariant() public view whenNotLocked returns (uint256) {
-        return totalAssets() * 1e18 / totalSupply();
+        return totalAssets() * 1e18 / actualSupply();
+    }
+
+    function actualSupply() public view returns (uint256) {
+        return totalSupply() + _pendingProtocolFeeSharesToBeMinted();
     }
 
     // ---------------------------------------------------------------------
@@ -641,6 +661,24 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _setUnwindsPaused(_paused);
     }
 
+    function setProtocolFeePercent(uint256 _protocolFeePercent) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_protocolFeePercent <= MAX_PROTOCOL_FEE_PERCENT, "protocol fee too high");
+
+        _payProtocolFees();
+
+        protocolFeePercent = _protocolFeePercent;
+
+        //TODO: emit event
+    }
+
+    function setTreasuryAddress(address _treasuryAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_treasuryAddress != address(0), "treasury address cannot be zero");
+
+        treasuryAddress = _treasuryAddress;
+
+        //TODO: emit event
+    }
+
     // ---------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------
@@ -684,6 +722,44 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(_lstSessionBalance >= amount, InsufficientLstSessionBalance());
 
         _lstSessionBalance -= amount;
+    }
+
+    function _pendingProtocolFeeSharesToBeMinted() internal view returns (uint256) {
+        if (protocolFeePercent == 0) {
+            return 0;
+        }
+
+        uint256 currentTotalSupply = totalSupply();
+        uint256 rate = _getRate(currentTotalSupply);
+
+        if (rate > athRate && protocolFeePercent > 0) {
+            uint256 rateGrowth = rate - athRate;
+            uint256 protocolOwnershipPercentage = (rateGrowth * protocolFeePercent) / rate;
+
+            return currentTotalSupply * protocolOwnershipPercentage / (1e18 - protocolOwnershipPercentage);
+        }
+
+        return 0;
+    }
+
+    function _payProtocolFees() private {
+        uint256 sharesToMint = _pendingProtocolFeeSharesToBeMinted();
+
+        if (sharesToMint > 0) {
+            _mint(treasuryAddress, sharesToMint);
+
+            athRate = _getRate(totalSupply());
+        }
+    }
+
+    function _getRate(uint256 totalSupply) internal view returns (uint256) {
+        uint256 nav = getAaveLstCollateralAmountInEth() - getAaveWethDebtAmount();
+
+        if (nav == 0 || totalSupply == 0) {
+            return 1e18;
+        }
+
+        return nav * 1e18 / totalSupply;
     }
 
     receive() external payable {
