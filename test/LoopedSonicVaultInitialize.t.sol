@@ -105,22 +105,78 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
     function testZeroAddressOnCreationReverts() public {
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
         new LoopedSonicVault(
-            address(0), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(0),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.007e18,
+            admin
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
         new LoopedSonicVault(
-            address(WETH), address(0), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(WETH),
+            address(0),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.007e18,
+            admin
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
         new LoopedSonicVault(
-            address(WETH), address(LST), address(0), E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(WETH),
+            address(LST),
+            address(0),
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.007e18,
+            admin
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
         new LoopedSonicVault(
-            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), address(0)
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.007e18,
+            address(0)
+        );
+    }
+
+    function testTargetHealthFactorOnCreationReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.TargetHealthFactorTooLow.selector));
+        new LoopedSonicVault(
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1e18,
+            0.007e18,
+            admin
+        );
+    }
+
+    function testallowedUnwindSlippageOnCreationReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.AllowedUnwindSlippageTooHigh.selector));
+        new LoopedSonicVault(
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.03e18,
+            admin
         );
     }
 

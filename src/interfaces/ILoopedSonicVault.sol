@@ -195,7 +195,7 @@ interface ILoopedSonicVault {
     error InsufficientLstSessionBalance();
     error SenderNotWethContract();
     error TargetHealthFactorTooLow();
-    error SlippageTooHigh();
+    error AllowedUnwindSlippageTooHigh();
     error ZeroShares();
     error SharesExceedTotalSupply();
     error LstRateChanged();

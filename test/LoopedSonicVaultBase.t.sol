@@ -42,7 +42,14 @@ contract LoopedSonicVaultBase is Test {
         aaveCapoRateProvider = new AaveCapoRateProvider(address(LST), address(PRICE_CAP_ADAPTER));
 
         vault = new LoopedSonicVault(
-            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.007e18,
+            admin
         );
         WETH.approve(address(vault), type(uint256).max);
         LST.approve(address(vault), type(uint256).max);
@@ -184,7 +191,14 @@ contract LoopedSonicVaultBase is Test {
 
     function _getUninitializedVault() internal returns (LoopedSonicVault) {
         return new LoopedSonicVault(
-            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            1.3e18,
+            0.007e18,
+            admin
         );
     }
 

@@ -312,7 +312,7 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
     function testSetAllowedUnwindSlippagePercentMaximumValidation() public {
         uint256 aboveMaximum = vault.MAX_UNWIND_SLIPPAGE_PERCENT() + 0.01e18;
 
-        vm.expectRevert(abi.encodeWithSignature("SlippageTooHigh()"));
+        vm.expectRevert(abi.encodeWithSignature("AllowedUnwindSlippageTooHigh()"));
         vm.prank(admin);
         vault.setAllowedUnwindSlippagePercent(aboveMaximum);
     }
