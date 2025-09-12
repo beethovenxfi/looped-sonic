@@ -127,4 +127,35 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         vm.prank(LST_OPERATOR);
         LST.donate{value: donateAmount}();
     }
+
+    function testProtocolFeePercent() public {
+        uint256 athRateStart = vault.athRate();
+        uint256 rateStart = vault.getRate();
+
+        vm.startPrank(admin);
+        vault.setProtocolFeePercent(0.01e18);
+        vault.setTreasuryAddress(treasury);
+        vm.stopPrank();
+
+        uint256 rateStart2 = vault.getRate();
+        _setupStandardDeposit();
+
+        uint256 rateBefore = vault.getRate();
+
+        //increase the rate
+        _donateAaveLstATokensToVault(user1, 1 ether);
+
+        uint256 rateAfter = vault.getRate();
+
+        _setupStandardDeposit();
+
+        _donateAaveLstATokensToVault(user1, 1 ether);
+
+        (uint256 collateralInLst, uint256 debtInEth) = vault.getCollateralAndDebtForShares(1 ether);
+        console.log("collateralInLst", collateralInLst);
+        console.log("debtInEth", debtInEth);
+
+        console.log("before withdraw");
+        _withdrawFromVault(user1, 1 ether, "");
+    }
 }

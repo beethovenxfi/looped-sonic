@@ -31,6 +31,7 @@ contract LoopedSonicVaultBase is Test {
     address public operator = makeAddr("operator");
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
+    address public treasury = makeAddr("treasury");
 
     uint256 public constant INITIAL_BALANCE = 1000 ether;
     uint256 public constant INIT_AMOUNT = 1 ether;
