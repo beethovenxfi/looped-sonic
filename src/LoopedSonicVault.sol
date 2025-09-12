@@ -48,9 +48,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
     bool public isInitialized = false;
 
-    // uint256 public targetHealthFactor = 1.3e18;
-    // uint256 public allowedUnwindSlippagePercent = 0.007e18; // 0.7%
-
     uint256 public targetHealthFactor;
     uint256 public allowedUnwindSlippagePercent;
 
