@@ -255,6 +255,61 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         }
     }
 
+    function testFullyUnwindAndWithdraw() public {
+        _setupStandardDeposit();
+
+        VaultSnapshot.Data memory initSnapshot = vault.getVaultSnapshot();
+        uint256 wethDebtAmount = initSnapshot.wethDebtAmount;
+        while (wethDebtAmount > 0) {
+            VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
+
+            uint256 collateralMin = snapshotBefore.wethDebtAmount * 1e18 / snapshotBefore.liquidationThresholdScaled18();
+            uint256 maxWithdrawable = snapshotBefore.lstCollateralAmountInEth - collateralMin;
+
+            if (maxWithdrawable > snapshotBefore.wethDebtAmount) {
+                maxWithdrawable = snapshotBefore.wethDebtAmount;
+            }
+
+            uint256 maxWithdrawableInLst = LST.convertToShares(maxWithdrawable) * 0.9999999e18 / 1e18;
+            if (maxWithdrawableInLst < vault.MIN_UNWIND_AMOUNT()) break; // break here, we'll repay the remainder manually after
+
+            bytes memory liquidationData =
+                abi.encodeWithSelector(this._liquidateLstAtRedemptionRate.selector, maxWithdrawableInLst);
+
+            vault.unwind(maxWithdrawableInLst, liquidationData);
+
+            VaultSnapshot.Data memory snapshotAfter = vault.getVaultSnapshot();
+            assertApproxEqAbs(
+                snapshotAfter.wethDebtAmount,
+                snapshotBefore.wethDebtAmount - LST.convertToAssets(maxWithdrawableInLst),
+                1,
+                "WETH debt should decrease correctly"
+            );
+        }
+
+        VaultSnapshot.Data memory snapshotAfterUnwind = vault.getVaultSnapshot();
+        if (snapshotAfterUnwind.wethDebtAmount > 0) {
+            // Repay the remainder manually
+
+            vm.deal(address(this), snapshotAfterUnwind.wethDebtAmount);
+            WETH.deposit{value: snapshotAfterUnwind.wethDebtAmount}();
+            WETH.approve(address(vault.AAVE_POOL()), snapshotAfterUnwind.wethDebtAmount);
+
+            vault.AAVE_POOL().repay(
+                address(WETH), snapshotAfterUnwind.wethDebtAmount, vault.AAVE_VARIABLE_INTEREST_RATE(), address(vault)
+            );
+        }
+
+        VaultSnapshot.Data memory finalSnapshot = vault.getVaultSnapshot();
+        assertEq(finalSnapshot.wethDebtAmount, 0, "WETH debt should be zero after full unwind");
+
+        uint256 sharesToRedeem = vault.balanceOf(user1);
+        _withdrawFromVault(user1, sharesToRedeem, "");
+        uint256 sharesAfter = vault.balanceOf(user1);
+
+        assertEq(sharesAfter, 0, "Shares should be burned");
+    }
+
     function testUnwindWithTooMuchSlippage() public {
         _setupStandardDeposit();
 
