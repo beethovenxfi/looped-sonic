@@ -502,7 +502,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.ltv = collateralConfig.ltv;
         data.liquidationThreshold = collateralConfig.liquidationThreshold;
 
-        data.actualSupply = actualSupply();
+        data.actualSupply = _actualSupply();
 
         data.lstATokenBalance = IScaledBalanceToken(address(LST_A_TOKEN)).scaledBalanceOf(address(this));
         data.wethDebtTokenBalance =
@@ -522,9 +522,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
+    function convertToAssets(uint256 shares) external view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 actualShares = actualSupply();
+        uint256 actualShares = _actualSupply();
 
         if (assetsTotal == 0 || actualShares == 0) {
             return shares;
@@ -536,9 +536,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function convertToShares(uint256 assets) public view whenNotLocked returns (uint256) {
+    function convertToShares(uint256 assets) external view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 actualShares = actualSupply();
+        uint256 actualShares = _actualSupply();
 
         if (assetsTotal == 0 || actualShares == 0) {
             return assets;
@@ -550,16 +550,16 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getRate() public view whenNotLocked returns (uint256) {
-        // The rate is the amount of assets that 1 share is worth
-        return _getRate(actualSupply());
+    function getRate() external view whenNotLocked returns (uint256) {
+        // The rate is the amount of ETH that 1 share is worth
+        return _getRate(_actualSupply());
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
     function getCollateralAndDebtForShares(uint256 shares)
-        public
+        external
         view
         whenNotLocked
         returns (uint256 collateralInLst, uint256 debtInEth)
@@ -576,7 +576,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getSessionBalances() public view returns (uint256 wethSessionBalance, uint256 lstSessionBalance) {
+    function getSessionBalances() external view returns (uint256 wethSessionBalance, uint256 lstSessionBalance) {
         wethSessionBalance = _wethSessionBalance;
         lstSessionBalance = _lstSessionBalance;
     }
@@ -602,22 +602,28 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getHealthFactor() public view returns (uint256) {
+    function getHealthFactor() external view returns (uint256) {
         return getVaultSnapshot().healthFactor();
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getBorrowAmountForLoopInEth() public view returns (uint256) {
+    function getBorrowAmountForLoopInEth() external view returns (uint256) {
         return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
-    function actualSupply() public view returns (uint256) {
-        return totalSupply() + _pendingProtocolFeeSharesToBeMinted();
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function actualSupply() external view whenNotLocked returns (uint256) {
+        return _actualSupply();
     }
 
-    function getPendingProtocolFeeSharesToBeMinted() public view returns (uint256) {
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function getPendingProtocolFeeSharesToBeMinted() external view whenNotLocked returns (uint256) {
         return _pendingProtocolFeeSharesToBeMinted();
     }
 
@@ -787,6 +793,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         }
 
         return nav * 1e18 / totalSupply;
+    }
+
+    function _actualSupply() internal view returns (uint256) {
+        return totalSupply() + _pendingProtocolFeeSharesToBeMinted();
     }
 
     receive() external payable {

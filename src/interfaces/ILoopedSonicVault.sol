@@ -236,7 +236,7 @@ interface ILoopedSonicVault {
     function withdraw(uint256 sharesToRedeem, bytes calldata callbackData) external;
 
     /**
-     * @notice Initializes the vault with initial liquidity (owner only)
+     * @notice Initializes the vault with initial liquidity (admin only)
      * @dev Stakes initial WETH to LST, supplies to Aave, sets up e-mode, mints initial shares
      */
     function initialize() external;
@@ -407,26 +407,41 @@ interface ILoopedSonicVault {
      */
     function getBorrowAmountForLoopInEth() external view returns (uint256);
 
+    /**
+     * @notice Gets the actual supply of vault tokens (including pending protocol fees)
+     * @dev Can only be called when vault is not locked
+     * @return The actual supply of vault tokens
+     */
+    function actualSupply() external view returns (uint256);
+
+    /**
+     * @notice Gets the amount of protocol fee shares pending that will be minted immediately before the next deposit
+     * or withdraw
+     * @dev Can only be called when vault is not locked
+     * @return The amount of protocol fee shares pending to be minted
+     */
+    function getPendingProtocolFeeSharesToBeMinted() external view returns (uint256);
+
     // ---------------------------------------------------------------------
     // Admin functions
     // ---------------------------------------------------------------------
 
     /**
-     * @notice Sets the target health factor for vault operations (owner only)
+     * @notice Sets the target health factor for vault operations (admin only)
      * @dev Must be greater than or equal to minimum target health factor (1.1)
      * @param _targetHealthFactor The new target health factor (18 decimals)
      */
     function setTargetHealthFactor(uint256 _targetHealthFactor) external;
 
     /**
-     * @notice Sets the allowed slippage for unwind operations (owner only)
+     * @notice Sets the allowed slippage for unwind operations (admin only)
      * @dev Must be less than or equal to maximum unwind slippage (2%)
      * @param _allowedUnwindSlippagePercent The new allowed slippage (18 decimals)
      */
     function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent) external;
 
     /**
-     * @notice Sets the Aave Capo rate provider address (owner only)
+     * @notice Sets the Aave Capo rate provider address (admin only)
      * @dev Updates the rate provider used for pricing LST collateral
      * @param _aaveCapoRateProvider The new rate provider contract address
      */
@@ -439,20 +454,49 @@ interface ILoopedSonicVault {
     function pause() external;
 
     /**
-     * @notice Sets the pause status for deposit operations (owner only)
+     * @notice Sets the pause status for deposit operations (admin only)
      * @param _paused True to pause deposits, false to unpause
      */
     function setDepositsPaused(bool _paused) external;
 
     /**
-     * @notice Sets the pause status for withdrawal operations (owner only)
+     * @notice Sets the pause status for withdrawal operations (admin only)
      * @param _paused True to pause withdrawals, false to unpause
      */
     function setWithdrawsPaused(bool _paused) external;
 
     /**
-     * @notice Sets the pause status for unwind operations (owner only)
+     * @notice Sets the pause status for unwind operations (admin only)
      * @param _paused True to pause unwinds, false to unpause
      */
     function setUnwindsPaused(bool _paused) external;
+
+    /**
+     * @notice Sets the protocol fee percentage in basis points (admin only)
+     * @dev Converted to 18 decimal percentage internally. Max fee is enforced.
+     * @param _protocolFeePercentBps The new protocol fee in basis points (100 = 1%)
+     */
+    function setProtocolFeePercentBps(uint256 _protocolFeePercentBps) external;
+
+    /**
+     * @notice Sets the treasury address for protocol fees (admin only)
+     * @param _treasuryAddress The new treasury address to receive protocol fees
+     */
+    function setTreasuryAddress(address _treasuryAddress) external;
+
+    // ---------------------------------------------------------------------
+    // State variable getters
+    // ---------------------------------------------------------------------
+
+    /**
+     * @notice Gets the current protocol fee percentage
+     * @return The protocol fee percentage (18 decimals)
+     */
+    function protocolFeePercent() external view returns (uint256);
+
+    /**
+     * @notice Gets the current treasury address
+     * @return The address that receives protocol fees
+     */
+    function treasuryAddress() external view returns (address);
 }
