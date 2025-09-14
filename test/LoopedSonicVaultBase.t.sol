@@ -53,7 +53,8 @@ contract LoopedSonicVaultBase is Test {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
         WETH.approve(address(vault), type(uint256).max);
         LST.approve(address(vault), type(uint256).max);
@@ -202,7 +203,8 @@ contract LoopedSonicVaultBase is Test {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
     }
 
@@ -250,6 +252,33 @@ contract LoopedSonicVaultBase is Test {
         vm.deal(user, amount);
         vm.prank(user);
         WETH.deposit{value: amount}();
+    }
+
+    function _donateToLst(uint256 donateAmount) internal {
+        vm.deal(LST_OPERATOR, donateAmount);
+
+        vm.prank(LST_OPERATOR);
+        LST.donate{value: donateAmount}();
+    }
+
+    function _unwindFromVault(uint256 lstAmountToWithdraw) internal {
+        bytes memory callbackData = abi.encodeWithSelector(this._unwindCallback.selector, lstAmountToWithdraw);
+
+        vault.unwind(lstAmountToWithdraw, callbackData);
+    }
+
+    function _unwindCallback(uint256 lstAmount) external returns (uint256 wethAmount) {
+        // We simulate liqudation at the redemption rate
+        wethAmount = LST.convertToAssets(lstAmount);
+
+        // give this contract the required WETH
+        vm.deal(address(this), wethAmount);
+        WETH.deposit{value: wethAmount}();
+
+        // burn the LST
+        LST.transfer(address(1), lstAmount);
+
+        return wethAmount;
     }
 
     function emptyCallback() external {}

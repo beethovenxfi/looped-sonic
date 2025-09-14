@@ -112,7 +112,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
@@ -124,7 +125,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
@@ -136,7 +138,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
@@ -148,7 +151,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            address(0)
+            address(0),
+            treasury
         );
     }
 
@@ -162,7 +166,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR - 1e18,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
     }
 
@@ -176,7 +181,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE + 1e18,
-            admin
+            admin,
+            treasury
         );
     }
 

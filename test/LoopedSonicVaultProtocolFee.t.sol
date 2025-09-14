@@ -13,18 +13,17 @@ import {AaveCapoRateProvider} from "../src/AaveCapoRateProvider.sol";
 import {IAaveCapoRateProvider} from "../src/interfaces/IAaveCapoRateProvider.sol";
 import {IPriceOracle} from "aave-v3-origin/interfaces/IPriceOracle.sol";
 
-contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
+contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
     using VaultSnapshotComparison for VaultSnapshotComparison.Data;
 
-    uint256 public constant PROTOCOL_FEE_PERCENT = 0.01e18;
+    uint256 public constant PROTOCOL_FEE_PERCENT_BPS = 100; // 1%
 
     function setUp() public override {
         super.setUp();
 
         vm.startPrank(admin);
-        vault.setProtocolFeePercent(PROTOCOL_FEE_PERCENT);
-        vault.setTreasuryAddress(treasury);
+        vault.setProtocolFeePercentBps(PROTOCOL_FEE_PERCENT_BPS);
         vm.stopPrank();
     }
 
@@ -65,15 +64,15 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         uint256 donationAmount = 1 ether;
 
         for (uint256 i = 1; i <= 5; i++) {
-            uint256 protocolFeePercent = PROTOCOL_FEE_PERCENT * i;
+            uint256 protocolFeePercentBps = PROTOCOL_FEE_PERCENT_BPS * i;
             vm.prank(admin);
-            vault.setProtocolFeePercent(protocolFeePercent);
+            vault.setProtocolFeePercentBps(protocolFeePercentBps);
 
             _donateAaveLstATokensToVault(user1, donationAmount);
 
             uint256 pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
             uint256 ethForShares = vault.convertToAssets(pendingShares);
-            uint256 expectedProtocolFeeAmount = donationAmount * protocolFeePercent / 1e18;
+            uint256 expectedProtocolFeeAmount = donationAmount * vault.protocolFeePercent() / 1e18;
 
             assertApproxEqAbs(ethForShares, expectedProtocolFeeAmount, 10 * i);
             assertLt(ethForShares, expectedProtocolFeeAmount, "vault should round down");
@@ -106,5 +105,112 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
             treasuryBalanceBefore + pendingSharesAfter,
             "Treasury balance should increase by reduced pending shares"
         );
+    }
+
+    function testFuzzProtocolFeeAlwaysRoundsDown(uint256 protocolFeePercentBps, uint256 donateAmount) public {
+        protocolFeePercentBps = bound(protocolFeePercentBps, 0, 5000);
+        donateAmount = bound(donateAmount, 0.01 ether, 10_000_000 ether);
+
+        _setupStandardDeposit();
+
+        vm.prank(admin);
+        vault.setProtocolFeePercentBps(protocolFeePercentBps);
+
+        _donateAaveLstATokensToVault(user1, donateAmount);
+
+        uint256 pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
+        uint256 ethForShares = vault.convertToAssets(pendingShares);
+        uint256 expectedProtocolFeeAmount = donateAmount * vault.protocolFeePercent() / 1e18;
+
+        assertApproxEqAbs(ethForShares, expectedProtocolFeeAmount, 1e12);
+        assertLe(ethForShares, expectedProtocolFeeAmount, "protocol fee should round down");
+    }
+
+    function testProtocolFeeNotChargedTwice() public {
+        _setupStandardDeposit();
+
+        _donateAaveLstATokensToVault(user1, 1 ether);
+
+        uint256 pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertGt(pendingShares, 0, "Pending shares should be greater than 0 after donate");
+
+        _setupStandardDeposit();
+
+        pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertEq(pendingShares, 0, "Pending shares should be 0 after deposit");
+
+        // accrue debt, lower the rate
+        vm.warp(block.timestamp + 365 days);
+
+        assertLt(vault.getRate(), vault.athRate(), "Rate should be less than athRate");
+
+        _donateAaveLstATokensToVault(user1, 1 ether);
+
+        pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertEq(pendingShares, 0, "Pending shares should be 0 since rate is less than athRate");
+    }
+
+    function testProtocolFeeChargedOnLstRateGrowth() public {
+        _setupStandardDeposit();
+
+        uint256 pendingSharesBefore = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertEq(pendingSharesBefore, 0, "Pending shares should be 0 after deposit");
+
+        _donateToLst(1 ether);
+
+        uint256 pendingSharesAfter = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertGt(pendingSharesAfter, 0, "Pending shares should be greater than 0 after LST rate growth");
+    }
+
+    function testProtocolFeesChargedOnWithdraw() public {
+        _setupStandardDeposit();
+
+        _donateToLst(1 ether);
+
+        uint256 pendingSharesBefore = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertGt(pendingSharesBefore, 0, "Pending shares should be greater than 0 after donate");
+
+        _withdrawFromVault(user1, 1 ether, "");
+
+        uint256 pendingSharesAfter = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertEq(pendingSharesAfter, 0, "Pending shares should be 0 after withdraw");
+        assertEq(vault.balanceOf(treasury), pendingSharesBefore, "Treasury balance should increase by pending shares");
+    }
+
+    function testProtocolFeesNotChargedOnUnwind() public {
+        _setupStandardDeposit();
+
+        _donateToLst(1 ether);
+
+        uint256 pendingSharesBefore = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertGt(pendingSharesBefore, 0, "Pending shares should be greater than 0 after donate");
+
+        _unwindFromVault(1 ether);
+
+        uint256 pendingSharesAfter = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertEq(pendingSharesAfter, pendingSharesBefore, "Pending shares should be the same after unwind");
+    }
+
+    function testProtocolFeePercentTooHigh() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ProtocolFeePercentTooHigh.selector));
+        vault.setProtocolFeePercentBps(5001);
+        vm.stopPrank();
+    }
+
+    function testTreasuryAddressCannotBeZero() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        vault.setTreasuryAddress(address(0));
+        vm.stopPrank();
     }
 }

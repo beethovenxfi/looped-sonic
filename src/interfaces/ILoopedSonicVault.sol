@@ -165,6 +165,18 @@ interface ILoopedSonicVault {
      */
     event UnwindsPausedChanged(bool paused);
 
+    /**
+     * @notice Emitted when protocol fee percent changes
+     * @param protocolFeePercent The new protocol fee percent
+     */
+    event ProtocolFeePercentChanged(uint256 protocolFeePercent);
+
+    /**
+     * @notice Emitted when treasury address changes
+     * @param treasuryAddress The new treasury address
+     */
+    event TreasuryAddressChanged(address treasuryAddress);
+
     // ---------------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------------
@@ -201,6 +213,7 @@ interface ILoopedSonicVault {
     error LstRateChanged();
     error TotalSupplyNotZero();
     error AmountGreaterThanWethDebt();
+    error ProtocolFeePercentTooHigh();
 
     // ---------------------------------------------------------------------
     // Primary vault operations

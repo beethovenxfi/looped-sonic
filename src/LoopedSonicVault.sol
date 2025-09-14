@@ -90,7 +90,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         address _aaveCapoRateProvider,
         uint256 _targetHealthFactor,
         uint256 _allowedUnwindSlippagePercent,
-        address _admin
+        address _admin,
+        address _treasuryAddress
     ) ERC20("Beets Aave Looped Sonic", "lS") {
         require(
             _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0)
@@ -120,6 +121,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         // Grant admin role to admin
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+
+        treasuryAddress = _treasuryAddress;
     }
 
     // ---------------------------------------------------------------------
@@ -192,7 +195,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         // Execute the callback, giving control back to the caller to perform the deposit
         (msg.sender).functionCall(callbackData);
 
+        // At this point the actualSupply is in an incorrect state, as the shares for the deposit have not yet been
+        // minted. None of the operations below access the actualSupply for this snapshot.
         data.stateAfter = getVaultSnapshot();
+
         uint256 navIncreaseEth = data.navIncreaseEth();
 
         require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, NavIncreaseBelowMin());
@@ -415,7 +421,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function aaveRepayWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
-        require(amount <= getAaveWethDebtAmount(), AmountGreaterThanWethDebt()); // Aave sends back WETH if you overpay, need to avoid that
+        // If we overpay, Aave will send WETH back to the vault, which would not be accounted for.
+        require(amount <= getAaveWethDebtAmount(), AmountGreaterThanWethDebt());
 
         _decrementWethSessionBalance(amount);
 
@@ -676,22 +683,26 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _setUnwindsPaused(_paused);
     }
 
-    function setProtocolFeePercent(uint256 _protocolFeePercent) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_protocolFeePercent <= MAX_PROTOCOL_FEE_PERCENT, "protocol fee too high");
+    function setProtocolFeePercentBps(uint256 _protocolFeePercentBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // We use BPS as the input amount to enforce a minimum of 0.01% and avoid issues with extreme values.
+        uint256 _protocolFeePercent = _protocolFeePercentBps * 1e14;
 
+        require(_protocolFeePercent <= MAX_PROTOCOL_FEE_PERCENT, ProtocolFeePercentTooHigh());
+
+        // Prior to setting the new protocol fee percent, pay any pending protocol fees
         _payProtocolFees();
 
         protocolFeePercent = _protocolFeePercent;
 
-        //TODO: emit event
+        emit ProtocolFeePercentChanged(_protocolFeePercent);
     }
 
     function setTreasuryAddress(address _treasuryAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_treasuryAddress != address(0), "treasury address cannot be zero");
+        require(_treasuryAddress != address(0), ZeroAddress());
 
         treasuryAddress = _treasuryAddress;
 
-        //TODO: emit event
+        emit TreasuryAddressChanged(_treasuryAddress);
     }
 
     // ---------------------------------------------------------------------
