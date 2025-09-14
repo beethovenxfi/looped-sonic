@@ -214,9 +214,6 @@ contract LoopedSonicVaultBase is Test {
         vault.getRate();
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
-        vault.getInvariant();
-
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.Locked.selector));
         vault.getCollateralAndDebtForShares(1e18);
     }
 

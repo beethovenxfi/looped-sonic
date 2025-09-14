@@ -19,7 +19,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 50e18,
             liquidationThreshold: 8500,
             ltv: 8000,
-            vaultTotalSupply: 1000e18,
+            actualSupply: 1000e18,
             lstATokenBalance: 100e18,
             wethDebtTokenBalance: 50e18,
             lstLiquidityIndex: 1e27,
@@ -50,14 +50,14 @@ contract VaultSnapshotTest is Test {
     }
 
     function testProportionalCollateralInLst() public view {
-        uint256 shares = snapshot.vaultTotalSupply / 10; // 10% of total shares
-        uint256 expected = snapshot.lstCollateralAmount * shares / snapshot.vaultTotalSupply - 1;
+        uint256 shares = snapshot.actualSupply / 10; // 10% of total shares
+        uint256 expected = snapshot.lstCollateralAmount * shares / snapshot.actualSupply - 1;
         uint256 collateral = snapshot.proportionalCollateralInLst(shares);
         assertEq(collateral, expected);
     }
 
     function testProportionalCollateralInLstWithMaxShares() public view {
-        uint256 shares = snapshot.vaultTotalSupply;
+        uint256 shares = snapshot.actualSupply;
         uint256 expected = snapshot.lstCollateralAmount - 1;
         uint256 collateral = snapshot.proportionalCollateralInLst(shares);
         assertEq(collateral, expected);
@@ -65,28 +65,27 @@ contract VaultSnapshotTest is Test {
 
     function testProportionalCollateralInLstRoundsDown() public {
         snapshot.lstCollateralAmount = 100e18;
-        snapshot.vaultTotalSupply = 3;
+        snapshot.actualSupply = 3;
         uint256 shares = 1;
-        uint256 expected = snapshot.lstCollateralAmount * shares / snapshot.vaultTotalSupply - 1;
+        uint256 expected = snapshot.lstCollateralAmount * shares / snapshot.actualSupply - 1;
         uint256 collateral = snapshot.proportionalCollateralInLst(shares);
         assertEq(collateral, expected);
 
         // Verify it rounds down by checking the remainder would have been lost
-        uint256 remainder = snapshot.lstCollateralAmount % snapshot.vaultTotalSupply;
+        uint256 remainder = snapshot.lstCollateralAmount % snapshot.actualSupply;
         assertGt(remainder, 0, "Should have remainder to demonstrate rounding down");
     }
 
     function testProportionalDebtInEth() public view {
-        uint256 shares = snapshot.vaultTotalSupply / 10; // 10% of total shares
-        uint256 expected =
-            Math.mulDiv(snapshot.wethDebtAmount, shares, snapshot.vaultTotalSupply, Math.Rounding.Ceil) + 1;
+        uint256 shares = snapshot.actualSupply / 10; // 10% of total shares
+        uint256 expected = Math.mulDiv(snapshot.wethDebtAmount, shares, snapshot.actualSupply, Math.Rounding.Ceil) + 1;
 
         uint256 debt = snapshot.proportionalDebtInEth(shares);
         assertEq(debt, expected);
     }
 
     function testProportionalDebtInEthWithMaxShares() public view {
-        uint256 shares = snapshot.vaultTotalSupply;
+        uint256 shares = snapshot.actualSupply;
         uint256 expected = snapshot.wethDebtAmount;
         uint256 debt = snapshot.proportionalDebtInEth(shares);
         assertEq(debt, expected);
@@ -172,7 +171,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 0,
             liquidationThreshold: 8500,
             ltv: 8000,
-            vaultTotalSupply: totalSupply,
+            actualSupply: totalSupply,
             lstATokenBalance: lstATokenBalance,
             wethDebtTokenBalance: 0,
             lstLiquidityIndex: 1e27,
@@ -200,7 +199,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: TokenMath.getVTokenBalance(debtTokenAmount, wethVariableBorrowIndex),
             liquidationThreshold: 8500,
             ltv: 8000,
-            vaultTotalSupply: totalSupply,
+            actualSupply: totalSupply,
             lstATokenBalance: 0,
             wethDebtTokenBalance: debtTokenAmount,
             lstLiquidityIndex: 1e27,
@@ -225,7 +224,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: debtAmount,
             liquidationThreshold: 8500,
             ltv: ltv,
-            vaultTotalSupply: 1,
+            actualSupply: 1,
             lstATokenBalance: 0,
             wethDebtTokenBalance: 0,
             lstLiquidityIndex: 1e27,
@@ -263,7 +262,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: debtAmount,
             liquidationThreshold: liquidationThreshold,
             ltv: 8000,
-            vaultTotalSupply: 1,
+            actualSupply: 1,
             lstATokenBalance: 0,
             wethDebtTokenBalance: 0,
             lstLiquidityIndex: 1e27,
@@ -282,7 +281,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 0,
             liquidationThreshold: 0,
             ltv: 0,
-            vaultTotalSupply: 1,
+            actualSupply: 1,
             lstATokenBalance: 0,
             wethDebtTokenBalance: 0,
             lstLiquidityIndex: 1e27,
@@ -305,7 +304,7 @@ contract VaultSnapshotTest is Test {
             wethDebtAmount: 1,
             liquidationThreshold: 10000,
             ltv: 10000,
-            vaultTotalSupply: type(uint256).max,
+            actualSupply: type(uint256).max,
             lstATokenBalance: 0,
             wethDebtTokenBalance: 0,
             lstLiquidityIndex: 1e27,

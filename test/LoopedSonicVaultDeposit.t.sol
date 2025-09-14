@@ -54,7 +54,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         assertEq(invariantAfter, invariantBefore, "Invariant should not change");
         assertApproxEqAbs(
             vault.totalSupply(),
-            data.stateBefore.vaultTotalSupply + expectedShares,
+            data.stateBefore.actualSupply + expectedShares,
             NAV_DECREASE_TOLERANCE,
             "Total supply should increase by expected amount"
         );
@@ -422,7 +422,7 @@ contract LoopedSonicVaultDepositTest is LoopedSonicVaultBase {
         assertEq(invariantAfter, invariantBefore, "Invariant should not change");
         assertApproxEqAbs(
             vault.totalSupply(),
-            data.stateBefore.vaultTotalSupply + expectedShares,
+            data.stateBefore.actualSupply + expectedShares,
             NAV_DECREASE_TOLERANCE,
             "Total supply should increase by expected amount"
         );

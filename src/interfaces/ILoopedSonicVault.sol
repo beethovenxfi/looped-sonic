@@ -394,13 +394,6 @@ interface ILoopedSonicVault {
      */
     function getBorrowAmountForLoopInEth() external view returns (uint256);
 
-    /**
-     * @notice Gets the vault's share price invariant (total assets per total supply)
-     * @dev Used for monitoring vault share price stability
-     * @return The invariant value (18 decimals)
-     */
-    function getInvariant() external view returns (uint256);
-
     // ---------------------------------------------------------------------
     // Admin functions
     // ---------------------------------------------------------------------

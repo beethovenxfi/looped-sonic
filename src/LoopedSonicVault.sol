@@ -53,8 +53,12 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public allowedUnwindSlippagePercent = 0.007e18; // 0.7%
 
     uint256 public protocolFeePercent;
-    uint256 public athRate;
     address public treasuryAddress;
+    // We take the approach of only charging a protocol fee on rate growth once. This avoids double charging as the
+    // rate trends down as debt accrues inbetween stS harvests. It is understood that this approach is not perfect.
+    // In instances where the rate goes down and tvl increases signficantly, fees on the grown of the new tvl will not
+    // be captured.
+    uint256 public athRate;
 
     bool public depositsPaused = false;
     bool public withdrawsPaused = false;
@@ -170,6 +174,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(!depositsPaused, DepositsPaused());
         require(receiver != address(0), ZeroAddress());
 
+        // Protocol fees are paid immediately before a deposit. This ensures that any pending protocol fee
+        // is paid by the current share holders before new shares are issued.
         _payProtocolFees();
 
         VaultSnapshotComparison.Data memory data;
@@ -188,6 +194,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
+
+        // We MUST use totalSupply here, the deposit callback has increased the NAV, but new shares have not yet been
+        // minted. The rate is inflated until the shares are minted below.
         shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
@@ -210,6 +219,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(!withdrawsPaused, WithdrawsPaused());
         require(sharesToRedeem >= MIN_SHARES_TO_REDEEM, NotEnoughShares());
 
+        // Protocol fees are paid immediately before a witdhraw. This ensures that any pending protocol fee
+        // is paid by the current share holders before shares are burned.
         _payProtocolFees();
 
         VaultSnapshotComparison.Data memory data;
@@ -233,7 +244,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
             data.navDecreaseEth(),
             data.stateAfter.lstCollateralAmountInEth,
             data.stateAfter.wethDebtAmount,
-            data.stateAfter.vaultTotalSupply
+            data.stateAfter.actualSupply
         );
     }
 
@@ -245,7 +256,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
 
-        require(snapshotBefore.vaultTotalSupply == 0, TotalSupplyNotZero());
+        require(snapshotBefore.actualSupply == 0, TotalSupplyNotZero());
         require(snapshotBefore.lstCollateralAmount == 0, CollateralNotZero());
 
         pullWeth(INIT_AMOUNT);
@@ -268,8 +279,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         isInitialized = true;
 
-        // Set the initial athRate. Total supply was zero before, so sharesToMint is the total supply
-        athRate = _getRate(sharesToMint);
+        // We start the athRate at 1e18
+        athRate = 1e18;
 
         emit Initialize(
             msg.sender,
@@ -328,7 +339,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
             wethAmount,
             snapshot.lstCollateralAmountInEth,
             snapshot.wethDebtAmount,
-            snapshot.vaultTotalSupply
+            snapshot.actualSupply
         );
     }
 
@@ -478,7 +489,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.ltv = collateralConfig.ltv;
         data.liquidationThreshold = collateralConfig.liquidationThreshold;
 
-        data.vaultTotalSupply = actualSupply();
+        data.actualSupply = actualSupply();
 
         data.lstATokenBalance = IScaledBalanceToken(address(LST_A_TOKEN)).scaledBalanceOf(address(this));
         data.wethDebtTokenBalance =
@@ -500,13 +511,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 totalShares = actualSupply();
+        uint256 actualShares = actualSupply();
 
-        if (assetsTotal == 0 || totalShares == 0) {
+        if (assetsTotal == 0 || actualShares == 0) {
             return shares;
         }
 
-        return (shares * assetsTotal) / totalShares;
+        return (shares * assetsTotal) / actualShares;
     }
 
     /**
@@ -514,13 +525,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function convertToShares(uint256 assets) public view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 totalShares = actualSupply();
+        uint256 actualShares = actualSupply();
 
-        if (assetsTotal == 0 || totalShares == 0) {
+        if (assetsTotal == 0 || actualShares == 0) {
             return assets;
         }
 
-        return (assets * totalShares) / assetsTotal;
+        return (assets * actualShares) / assetsTotal;
     }
 
     /**
@@ -543,7 +554,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         VaultSnapshot.Data memory data = getVaultSnapshot();
 
         require(shares > 0, ZeroShares());
-        require(shares <= data.vaultTotalSupply, SharesExceedTotalSupply());
+        require(shares <= data.actualSupply, SharesExceedTotalSupply());
 
         collateralInLst = data.proportionalCollateralInLst(shares);
         debtInEth = data.proportionalDebtInEth(shares);
@@ -589,15 +600,12 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
-    /**
-     * @inheritdoc ILoopedSonicVault
-     */
-    function getInvariant() public view whenNotLocked returns (uint256) {
-        return totalAssets() * 1e18 / actualSupply();
-    }
-
     function actualSupply() public view returns (uint256) {
         return totalSupply() + _pendingProtocolFeeSharesToBeMinted();
+    }
+
+    function getPendingProtocolFeeSharesToBeMinted() public view returns (uint256) {
+        return _pendingProtocolFeeSharesToBeMinted();
     }
 
     // ---------------------------------------------------------------------
@@ -749,6 +757,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         if (sharesToMint > 0) {
             _mint(treasuryAddress, sharesToMint);
 
+            // update the athRate to the current rate
             athRate = _getRate(totalSupply());
         }
     }

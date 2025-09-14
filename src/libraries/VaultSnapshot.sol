@@ -16,7 +16,7 @@ library VaultSnapshot {
         uint256 wethDebtAmount;
         uint256 liquidationThreshold;
         uint256 ltv;
-        uint256 vaultTotalSupply;
+        uint256 actualSupply;
         uint256 lstATokenBalance;
         uint256 wethDebtTokenBalance;
         uint256 lstLiquidityIndex;
@@ -30,7 +30,7 @@ library VaultSnapshot {
     function proportionalCollateralInLst(Data memory data, uint256 shares) internal pure returns (uint256) {
         // Rounding down rounds in the favor of the vault, decreasing the collateral available to be claimed.
         uint256 proportionalLstAToken =
-            Math.mulDiv(data.lstATokenBalance, shares, data.vaultTotalSupply, Math.Rounding.Floor);
+            Math.mulDiv(data.lstATokenBalance, shares, data.actualSupply, Math.Rounding.Floor);
 
         // We use Aave's TokenMath library to get the actual LST amount from the scaled amount.
         uint256 proportionalCollateral = TokenMath.getATokenBalance(proportionalLstAToken, data.lstLiquidityIndex);
@@ -47,7 +47,7 @@ library VaultSnapshot {
     function proportionalDebtInEth(Data memory data, uint256 shares) internal pure returns (uint256) {
         // Rounding up rounds in the favor of the vault, increasing the debt owed.
         uint256 proportionalDebtToken =
-            Math.mulDiv(data.wethDebtTokenBalance, shares, data.vaultTotalSupply, Math.Rounding.Ceil);
+            Math.mulDiv(data.wethDebtTokenBalance, shares, data.actualSupply, Math.Rounding.Ceil);
 
         // We use Aave's TokenMath library to get the actual debt amount from the scaled amount.
         uint256 proportionalDebt = TokenMath.getVTokenBalance(proportionalDebtToken, data.wethVariableBorrowIndex);
