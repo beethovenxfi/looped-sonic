@@ -49,8 +49,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
     bool public isInitialized = false;
 
-    uint256 public targetHealthFactor = 1.3e18;
-    uint256 public allowedUnwindSlippagePercent = 0.007e18; // 0.7%
+    uint256 public targetHealthFactor;
+    uint256 public allowedUnwindSlippagePercent;
 
     uint256 public protocolFeePercent;
     address public treasuryAddress;
@@ -88,6 +88,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         address _aavePool,
         uint8 _eModeCategoryId,
         address _aaveCapoRateProvider,
+        uint256 _targetHealthFactor,
+        uint256 _allowedUnwindSlippagePercent,
         address _admin
     ) ERC20("Beets Aave Looped Sonic", "lS") {
         require(
@@ -95,6 +97,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
                 && _aaveCapoRateProvider != address(0),
             ZeroAddress()
         );
+        require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, TargetHealthFactorTooLow());
+        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, AllowedUnwindSlippageTooHigh());
+        targetHealthFactor = _targetHealthFactor;
+        allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
 
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
@@ -627,7 +633,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, SlippageTooHigh());
+        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, AllowedUnwindSlippageTooHigh());
         allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
     }
 

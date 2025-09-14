@@ -27,6 +27,9 @@ contract LoopedSonicVaultBase is Test {
     LoopedSonicVault public vault;
     AaveCapoRateProvider public aaveCapoRateProvider;
 
+    uint256 constant INITIAL_TARGET_HEALTH_FACTOR = 1.3e18;
+    uint256 constant INITIAL_ALLOWED_UNWIND_SLIPPAGE = 0.007e18; // 0.7%
+
     address public admin = makeAddr("admin");
     address public operator = makeAddr("operator");
     address public user1 = makeAddr("user1");
@@ -43,7 +46,14 @@ contract LoopedSonicVaultBase is Test {
         aaveCapoRateProvider = new AaveCapoRateProvider(address(LST), address(PRICE_CAP_ADAPTER));
 
         vault = new LoopedSonicVault(
-            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
+            admin
         );
         WETH.approve(address(vault), type(uint256).max);
         LST.approve(address(vault), type(uint256).max);
@@ -185,7 +195,14 @@ contract LoopedSonicVaultBase is Test {
 
     function _getUninitializedVault() internal returns (LoopedSonicVault) {
         return new LoopedSonicVault(
-            address(WETH), address(LST), AAVE_POOL, E_MODE_CATEGORY_ID, address(aaveCapoRateProvider), admin
+            address(WETH),
+            address(LST),
+            AAVE_POOL,
+            E_MODE_CATEGORY_ID,
+            address(aaveCapoRateProvider),
+            INITIAL_TARGET_HEALTH_FACTOR,
+            INITIAL_ALLOWED_UNWIND_SLIPPAGE,
+            admin
         );
     }
 
