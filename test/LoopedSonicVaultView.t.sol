@@ -32,7 +32,7 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
             vault.aaveCapoRateProvider().convertToAssets(snapshot.lstCollateralAmount)
         );
         assertEq(snapshot.wethDebtAmount, vault.WETH_VARIABLE_DEBT_TOKEN().balanceOf(address(vault)));
-        assertEq(snapshot.vaultTotalSupply, vault.totalSupply());
+        assertEq(snapshot.actualSupply, vault.totalSupply());
         assertEq(snapshot.ltv, collateralConfig.ltv);
         assertEq(snapshot.liquidationThreshold, collateralConfig.liquidationThreshold);
     }
@@ -207,22 +207,6 @@ contract LoopedSonicVaultViewTest is LoopedSonicVaultBase {
         uint256 expectedAmount = snapshot.borrowAmountForLoopInEth(vault.targetHealthFactor());
 
         assertEq(borrowAmount, expectedAmount);
-    }
-
-    function testGetInvariant() public view {
-        uint256 invariant = vault.getInvariant();
-        assertGt(invariant, 0);
-
-        uint256 expectedInvariant = vault.totalAssets() * 1e18 / vault.totalSupply();
-        assertEq(invariant, expectedInvariant);
-    }
-
-    function testGetInvariantAfterDeposit() public {
-        uint256 invariantBefore = vault.getInvariant();
-        _setupStandardDeposit();
-        uint256 invariantAfter = vault.getInvariant();
-
-        assertEq(invariantAfter, invariantBefore);
     }
 
     function testViewFunctionConsistency() public view {

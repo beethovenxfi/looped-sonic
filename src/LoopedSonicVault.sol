@@ -35,6 +35,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
     uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
+    uint256 public constant MAX_PROTOCOL_FEE_PERCENT = 0.5e18; // 50%
 
     // ---------------------------------------------------------------------
     // External protocol references (immutable after deployment)
@@ -50,6 +51,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
     uint256 public targetHealthFactor;
     uint256 public allowedUnwindSlippagePercent;
+
+    uint256 public protocolFeePercent;
+    address public treasuryAddress;
+    // We take the approach of only charging a protocol fee on rate growth once. This avoids double charging as the
+    // rate trends down as debt accrues inbetween stS harvests. It is understood that this approach is not perfect.
+    // In instances where the rate goes down and tvl increases signficantly, fees on the grown of the new tvl will not
+    // be captured.
+    uint256 public athRate;
 
     bool public depositsPaused = false;
     bool public withdrawsPaused = false;
@@ -81,7 +90,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         address _aaveCapoRateProvider,
         uint256 _targetHealthFactor,
         uint256 _allowedUnwindSlippagePercent,
-        address _admin
+        address _admin,
+        address _treasuryAddress
     ) ERC20("Beets Aave Looped Sonic", "lS") {
         require(
             _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0)
@@ -111,6 +121,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         // Grant admin role to admin
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
+
+        treasuryAddress = _treasuryAddress;
     }
 
     // ---------------------------------------------------------------------
@@ -171,6 +183,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(!depositsPaused, DepositsPaused());
         require(receiver != address(0), ZeroAddress());
 
+        // Protocol fees are paid immediately before a deposit. This ensures that any pending protocol fee
+        // is paid by the current share holders before new shares are issued.
+        _payProtocolFees();
+
         VaultSnapshotComparison.Data memory data;
 
         // Store the vault state before the callback performs the deposit
@@ -179,7 +195,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         // Execute the callback, giving control back to the caller to perform the deposit
         (msg.sender).functionCall(callbackData);
 
+        // At this point the actualSupply is in an incorrect state, as the shares for the deposit have not yet been
+        // minted. None of the operations below access the actualSupply for this snapshot.
         data.stateAfter = getVaultSnapshot();
+
         uint256 navIncreaseEth = data.navIncreaseEth();
 
         require(navIncreaseEth >= MIN_NAV_INCREASE_ETH, NavIncreaseBelowMin());
@@ -187,7 +206,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(data.checkHealthFactorAfterDeposit(targetHealthFactor), HealthFactorNotInRange());
 
         // Issue shares such that the invariant of totalAssets / totalSupply is preserved, rounding down
-        shares = data.stateAfter.vaultTotalSupply * navIncreaseEth / data.stateBefore.netAssetValueInEth();
+
+        // We MUST use totalSupply here, the deposit callback has increased the NAV, but new shares have not yet been
+        // minted. The rate is inflated until the shares are minted below.
+        shares = totalSupply() * navIncreaseEth / data.stateBefore.netAssetValueInEth();
 
         _mint(receiver, shares);
 
@@ -208,6 +230,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     function withdraw(uint256 sharesToRedeem, bytes calldata callbackData) external whenInitialized acquireLock {
         require(!withdrawsPaused, WithdrawsPaused());
         require(sharesToRedeem >= MIN_SHARES_TO_REDEEM, NotEnoughShares());
+
+        // Protocol fees are paid immediately before a witdhraw. This ensures that any pending protocol fee
+        // is paid by the current share holders before shares are burned.
+        _payProtocolFees();
 
         VaultSnapshotComparison.Data memory data;
 
@@ -230,7 +256,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
             data.navDecreaseEth(),
             data.stateAfter.lstCollateralAmountInEth,
             data.stateAfter.wethDebtAmount,
-            data.stateAfter.vaultTotalSupply
+            data.stateAfter.actualSupply
         );
     }
 
@@ -242,7 +268,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
 
-        require(snapshotBefore.vaultTotalSupply == 0, TotalSupplyNotZero());
+        require(snapshotBefore.actualSupply == 0, TotalSupplyNotZero());
         require(snapshotBefore.lstCollateralAmount == 0, CollateralNotZero());
 
         pullWeth(INIT_AMOUNT);
@@ -264,6 +290,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _mint(address(1), sharesToMint);
 
         isInitialized = true;
+
+        // We start the athRate at 1e18
+        athRate = 1e18;
 
         emit Initialize(
             msg.sender,
@@ -322,7 +351,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
             wethAmount,
             snapshot.lstCollateralAmountInEth,
             snapshot.wethDebtAmount,
-            snapshot.vaultTotalSupply
+            snapshot.actualSupply
         );
     }
 
@@ -392,7 +421,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function aaveRepayWeth(uint256 amount) public whenLocked {
         require(amount > 0, ZeroAmount());
-        require(amount <= getAaveWethDebtAmount(), AmountGreaterThanWethDebt()); // Aave sends back WETH if you overpay, need to avoid that
+        // If we overpay, Aave will send WETH back to the vault, which would not be accounted for.
+        require(amount <= getAaveWethDebtAmount(), AmountGreaterThanWethDebt());
 
         _decrementWethSessionBalance(amount);
 
@@ -472,7 +502,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         data.ltv = collateralConfig.ltv;
         data.liquidationThreshold = collateralConfig.liquidationThreshold;
 
-        data.vaultTotalSupply = totalSupply();
+        data.actualSupply = _actualSupply();
 
         data.lstATokenBalance = IScaledBalanceToken(address(LST_A_TOKEN)).scaledBalanceOf(address(this));
         data.wethDebtTokenBalance =
@@ -492,44 +522,44 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function convertToAssets(uint256 shares) public view whenNotLocked returns (uint256) {
+    function convertToAssets(uint256 shares) external view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 totalShares = totalSupply();
+        uint256 actualShares = _actualSupply();
 
-        if (assetsTotal == 0 || totalShares == 0) {
+        if (assetsTotal == 0 || actualShares == 0) {
             return shares;
         }
 
-        return (shares * assetsTotal) / totalShares;
+        return (shares * assetsTotal) / actualShares;
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function convertToShares(uint256 assets) public view whenNotLocked returns (uint256) {
+    function convertToShares(uint256 assets) external view whenNotLocked returns (uint256) {
         uint256 assetsTotal = totalAssets();
-        uint256 totalShares = totalSupply();
+        uint256 actualShares = _actualSupply();
 
-        if (assetsTotal == 0 || totalShares == 0) {
+        if (assetsTotal == 0 || actualShares == 0) {
             return assets;
         }
 
-        return (assets * totalShares) / assetsTotal;
+        return (assets * actualShares) / assetsTotal;
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getRate() public view whenNotLocked returns (uint256) {
-        // The rate is the amount of assets that 1 share is worth
-        return convertToAssets(1 ether);
+    function getRate() external view whenNotLocked returns (uint256) {
+        // The rate is the amount of ETH that 1 share is worth
+        return _getRate(_actualSupply());
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
     function getCollateralAndDebtForShares(uint256 shares)
-        public
+        external
         view
         whenNotLocked
         returns (uint256 collateralInLst, uint256 debtInEth)
@@ -537,7 +567,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         VaultSnapshot.Data memory data = getVaultSnapshot();
 
         require(shares > 0, ZeroShares());
-        require(shares <= data.vaultTotalSupply, SharesExceedTotalSupply());
+        require(shares <= data.actualSupply, SharesExceedTotalSupply());
 
         collateralInLst = data.proportionalCollateralInLst(shares);
         debtInEth = data.proportionalDebtInEth(shares);
@@ -546,7 +576,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getSessionBalances() public view returns (uint256 wethSessionBalance, uint256 lstSessionBalance) {
+    function getSessionBalances() external view returns (uint256 wethSessionBalance, uint256 lstSessionBalance) {
         wethSessionBalance = _wethSessionBalance;
         lstSessionBalance = _lstSessionBalance;
     }
@@ -556,6 +586,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      */
     function getAaveLstCollateralAmount() public view returns (uint256) {
         return LST_A_TOKEN.balanceOf(address(this));
+    }
+
+    function getAaveLstCollateralAmountInEth() public view returns (uint256) {
+        return aaveCapoRateProvider.convertToAssets(getAaveLstCollateralAmount());
     }
 
     /**
@@ -568,22 +602,29 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getHealthFactor() public view returns (uint256) {
+    function getHealthFactor() external view returns (uint256) {
         return getVaultSnapshot().healthFactor();
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getBorrowAmountForLoopInEth() public view returns (uint256) {
+    function getBorrowAmountForLoopInEth() external view returns (uint256) {
         return getVaultSnapshot().borrowAmountForLoopInEth(targetHealthFactor);
     }
 
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getInvariant() public view whenNotLocked returns (uint256) {
-        return totalAssets() * 1e18 / totalSupply();
+    function actualSupply() external view whenNotLocked returns (uint256) {
+        return _actualSupply();
+    }
+
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function getPendingProtocolFeeSharesToBeMinted() external view whenNotLocked returns (uint256) {
+        return _pendingProtocolFeeSharesToBeMinted();
     }
 
     // ---------------------------------------------------------------------
@@ -648,6 +689,28 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _setUnwindsPaused(_paused);
     }
 
+    function setProtocolFeePercentBps(uint256 _protocolFeePercentBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // We use BPS as the input amount to enforce a minimum of 0.01% and avoid issues with extreme values.
+        uint256 _protocolFeePercent = _protocolFeePercentBps * 1e14;
+
+        require(_protocolFeePercent <= MAX_PROTOCOL_FEE_PERCENT, ProtocolFeePercentTooHigh());
+
+        // Prior to setting the new protocol fee percent, pay any pending protocol fees
+        _payProtocolFees();
+
+        protocolFeePercent = _protocolFeePercent;
+
+        emit ProtocolFeePercentChanged(_protocolFeePercent);
+    }
+
+    function setTreasuryAddress(address _treasuryAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_treasuryAddress != address(0), ZeroAddress());
+
+        treasuryAddress = _treasuryAddress;
+
+        emit TreasuryAddressChanged(_treasuryAddress);
+    }
+
     // ---------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------
@@ -691,6 +754,49 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(_lstSessionBalance >= amount, InsufficientLstSessionBalance());
 
         _lstSessionBalance -= amount;
+    }
+
+    function _pendingProtocolFeeSharesToBeMinted() internal view returns (uint256) {
+        if (protocolFeePercent == 0) {
+            return 0;
+        }
+
+        uint256 currentTotalSupply = totalSupply();
+        uint256 rate = _getRate(currentTotalSupply);
+
+        if (rate > athRate && protocolFeePercent > 0) {
+            uint256 rateGrowth = rate - athRate;
+            uint256 protocolOwnershipPercentage = (rateGrowth * protocolFeePercent) / rate;
+
+            return currentTotalSupply * protocolOwnershipPercentage / (1e18 - protocolOwnershipPercentage);
+        }
+
+        return 0;
+    }
+
+    function _payProtocolFees() private {
+        uint256 sharesToMint = _pendingProtocolFeeSharesToBeMinted();
+
+        if (sharesToMint > 0) {
+            _mint(treasuryAddress, sharesToMint);
+
+            // update the athRate to the current rate
+            athRate = _getRate(totalSupply());
+        }
+    }
+
+    function _getRate(uint256 totalSupply) internal view returns (uint256) {
+        uint256 nav = getAaveLstCollateralAmountInEth() - getAaveWethDebtAmount();
+
+        if (nav == 0 || totalSupply == 0) {
+            return 1e18;
+        }
+
+        return nav * 1e18 / totalSupply;
+    }
+
+    function _actualSupply() internal view returns (uint256) {
+        return totalSupply() + _pendingProtocolFeeSharesToBeMinted();
     }
 
     receive() external payable {

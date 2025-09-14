@@ -27,7 +27,7 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
 
         assertFalse(vault.isInitialized(), "Vault should not be initialized");
-        assertEq(snapshotBefore.vaultTotalSupply, 0, "Vault should have no shares before init");
+        assertEq(snapshotBefore.actualSupply, 0, "Vault should have no shares before init");
         assertEq(snapshotBefore.lstCollateralAmount, 0, "Vault should have no LST collateral before init");
         assertEq(snapshotBefore.lstCollateralAmountInEth, 0, "Vault should have no LST collateral before init");
         assertEq(snapshotBefore.wethDebtAmount, 0, "Vault should have no WETH debt before init");
@@ -47,8 +47,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
         assertEq(WETH.balanceOf(user1), wethBalanceBefore - INIT_AMOUNT, "user WETH balance should decrease");
         assertEq(WETH.balanceOf(address(vault)), 0, "Vault should not hold WETH after init");
         assertEq(LST.balanceOf(address(vault)), 0, "Vault should not hold LST after init");
-        assertEq(snapshotAfter.vaultTotalSupply, nav, "Total supply should equal the nav");
-        assertEq(vault.balanceOf(address(1)), snapshotAfter.vaultTotalSupply, "All initial shares should be burned");
+        assertEq(snapshotAfter.actualSupply, nav, "Total supply should equal the nav");
+        assertEq(vault.balanceOf(address(1)), snapshotAfter.actualSupply, "All initial shares should be burned");
         assertApproxEqAbs(
             snapshotAfter.lstCollateralAmount,
             LST.convertToShares(INIT_AMOUNT),
@@ -112,7 +112,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
@@ -124,7 +125,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
@@ -136,7 +138,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
 
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
@@ -148,7 +151,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            address(0)
+            address(0),
+            treasury
         );
     }
 
@@ -162,7 +166,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR - 1e18,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE,
-            admin
+            admin,
+            treasury
         );
     }
 
@@ -176,7 +181,8 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
             address(aaveCapoRateProvider),
             INITIAL_TARGET_HEALTH_FACTOR,
             INITIAL_ALLOWED_UNWIND_SLIPPAGE + 1e18,
-            admin
+            admin,
+            treasury
         );
     }
 

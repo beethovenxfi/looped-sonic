@@ -32,7 +32,7 @@ contract VaultSnapshotComparisonTest is Test {
             wethDebtAmount: BASE_DEBT_AMOUNT,
             liquidationThreshold: LIQUIDATION_THRESHOLD,
             ltv: LTV,
-            vaultTotalSupply: BASE_TOTAL_SUPPLY,
+            actualSupply: BASE_TOTAL_SUPPLY,
             lstATokenBalance: LST_A_TOKEN_BALANCE,
             wethDebtTokenBalance: WETH_DEBT_TOKEN_BALANCE,
             lstLiquidityIndex: LST_LIQUIDITY_INDEX,
@@ -45,7 +45,7 @@ contract VaultSnapshotComparisonTest is Test {
             wethDebtAmount: BASE_DEBT_AMOUNT,
             liquidationThreshold: LIQUIDATION_THRESHOLD,
             ltv: LTV,
-            vaultTotalSupply: BASE_TOTAL_SUPPLY,
+            actualSupply: BASE_TOTAL_SUPPLY,
             lstATokenBalance: LST_A_TOKEN_BALANCE,
             wethDebtTokenBalance: WETH_DEBT_TOKEN_BALANCE,
             lstLiquidityIndex: LST_LIQUIDITY_INDEX,
@@ -247,7 +247,7 @@ contract VaultSnapshotComparisonTest is Test {
         comparison.stateBefore.wethDebtTokenBalance = initialWethDebtTokenBalance;
         comparison.stateBefore.wethDebtAmount =
             TokenMath.getVTokenBalance(initialWethDebtTokenBalance, wethVariableBorrowIndex);
-        comparison.stateBefore.vaultTotalSupply = totalSupply;
+        comparison.stateBefore.actualSupply = totalSupply;
 
         uint256 expectedDebtReduction = comparison.stateBefore.proportionalDebtInEth(sharesToRedeem);
         uint256 expectedDebtTokenReduction =
@@ -278,7 +278,7 @@ contract VaultSnapshotComparisonTest is Test {
         comparison.stateBefore.lstATokenBalance = initialLstATokenBalance;
         comparison.stateBefore.lstCollateralAmount =
             TokenMath.getATokenBalance(initialLstATokenBalance, lstLiquidityIndex);
-        comparison.stateBefore.vaultTotalSupply = totalSupply;
+        comparison.stateBefore.actualSupply = totalSupply;
 
         uint256 expectedCollateralReduction = comparison.stateBefore.proportionalCollateralInLst(sharesToRedeem);
         uint256 expectedLstATokenReduction =
