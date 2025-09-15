@@ -323,6 +323,14 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vault.setAllowedUnwindSlippagePercent(aboveMaximum);
     }
 
+    function testSetAllowedUnwindSlippagePercentTooMuchPrecision() public {
+        uint256 newSlippage = 0.010011e15; // 1.001%, too much precision
+
+        vm.expectRevert(abi.encodeWithSignature("AllowedUnwindSlippageNotInBps()"));
+        vm.prank(admin);
+        vault.setAllowedUnwindSlippagePercent(newSlippage);
+    }
+
     function testSetAllowedUnwindSlippagePercentAtMaximum() public {
         uint256 maximumSlippage = vault.MAX_UNWIND_SLIPPAGE_PERCENT();
 
@@ -404,11 +412,31 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vault.setAaveCapoRateProvider(address(0));
     }
 
+    // =============================================================================
+    // Protocol Fee Tests
+    // =============================================================================
+
+    function testSetProtocolFeePercentSuccess() public {
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.ProtocolFeePercentChanged(0.01e18);
+        vm.prank(admin);
+        vault.setProtocolFeePercent(0.01e18);
+        assertEq(vault.protocolFeePercent(), 0.01e18, "Protocol fee percent should be updated");
+    }
+
     function testOnlyAdminCanSetProtocolFeePercent() public {
         vm.startPrank(user1);
         vm.expectRevert();
         vault.setProtocolFeePercent(0.01e18);
         vm.stopPrank();
+    }
+
+    function testSetTreasuryAddressSuccess() public {
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.TreasuryAddressChanged(user2);
+        vm.prank(admin);
+        vault.setTreasuryAddress(user2);
+        assertEq(vault.treasuryAddress(), user2, "Treasury address should be updated");
     }
 
     function testOnlyAdminCanSetTreasuryAddress() public {
@@ -423,6 +451,14 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vm.startPrank(admin);
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ProtocolFeePercentTooHigh.selector));
         vault.setProtocolFeePercent(maxProtocolFeePercent + 0.01e18);
+        vm.stopPrank();
+    }
+
+    function testProtocolFeePercentTooMuchPrecision() public {
+        uint256 protocolFeePercent = 0.010011e15; // 1.001%, too much precision
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ProtocolFeePercentNotInBps.selector));
+        vault.setProtocolFeePercent(protocolFeePercent);
         vm.stopPrank();
     }
 
