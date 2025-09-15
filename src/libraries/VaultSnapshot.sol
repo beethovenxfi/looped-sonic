@@ -7,7 +7,6 @@ import {TokenMath} from "aave-v3-origin/protocol/libraries/helpers/TokenMath.sol
 library VaultSnapshot {
     using VaultSnapshot for Data;
 
-    uint256 public constant RAY = 1e27;
     uint256 public constant BPS_DIVISOR = 10_000;
 
     struct Data {
