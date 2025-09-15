@@ -127,7 +127,7 @@ contract VaultSnapshotComparisonTest is Test {
         comparison.stateBefore.wethDebtAmount = comparison.stateBefore.lstCollateralAmountInEth
             * comparison.stateBefore.liquidationThresholdScaled18() / highHealthFactor;
 
-        uint256 marginFactor = 1e18 + VaultSnapshotComparison.HEALTH_FACTOR_MARGIN + 1;
+        uint256 marginFactor = 1e18 + VaultSnapshotComparison.HEALTH_FACTOR_MARGIN_UPPER + 1;
         uint256 targetDebt = comparison.stateAfter.lstCollateralAmountInEth
             * comparison.stateAfter.liquidationThresholdScaled18() / (TARGET_HEALTH_FACTOR * marginFactor / 1e18);
         comparison.stateAfter.wethDebtAmount = targetDebt;
@@ -288,10 +288,6 @@ contract VaultSnapshotComparisonTest is Test {
         comparison.stateAfter.lstLiquidityIndex = lstLiquidityIndex;
 
         assertTrue(comparison.checkCollateralAfterWithdraw(sharesToRedeem));
-    }
-
-    function testHealthFactorMarginConstant() public view {
-        assertEq(VaultSnapshotComparison.HEALTH_FACTOR_MARGIN, 0.000001e18);
     }
 
     function testEdgeCaseZeroShares() public {

@@ -8,7 +8,10 @@ library VaultSnapshotComparison {
     using VaultSnapshotComparison for Data;
     using VaultSnapshot for VaultSnapshot.Data;
 
-    uint256 public constant HEALTH_FACTOR_MARGIN = 0.000001e18;
+    uint256 public constant HEALTH_FACTOR_MARGIN_LOWER = 0.00000001e18;
+    // Since the LST has a min deposit of 0.01 ETH, there are instances where the deposit loop ends up with slightly
+    // less than 0.01 ETH available to borrow. This margin accounts for that on the upper bound.
+    uint256 public constant HEALTH_FACTOR_MARGIN_UPPER = 0.0001e18;
 
     struct Data {
         VaultSnapshot.Data stateBefore;
@@ -28,12 +31,12 @@ library VaultSnapshotComparison {
             // The previous health factor is below the target, so we require that the new health factor cannot decrease
             // from it's current value
             return data.stateAfter.healthFactor() >= data.stateBefore.healthFactor()
-                && data.stateAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
+                && data.stateAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN_UPPER) / 1e18;
         } else {
             // The previous health factor is above the target, we require that the health factor is within a margin of
             // the target
-            return data.stateAfter.healthFactor() >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN) / 1e18
-                && data.stateAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN) / 1e18;
+            return data.stateAfter.healthFactor() >= targetHealthFactor * (1e18 - HEALTH_FACTOR_MARGIN_LOWER) / 1e18
+                && data.stateAfter.healthFactor() <= targetHealthFactor * (1e18 + HEALTH_FACTOR_MARGIN_UPPER) / 1e18;
         }
     }
 
