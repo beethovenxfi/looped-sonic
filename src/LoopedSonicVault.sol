@@ -47,7 +47,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     IERC20 public immutable WETH_VARIABLE_DEBT_TOKEN;
     uint8 public immutable AAVE_E_MODE_CATEGORY_ID;
 
-    bool public isInitialized = false;
+    bool public isInitialized;
 
     uint256 public targetHealthFactor;
     uint256 public allowedUnwindSlippagePercent;
@@ -131,6 +131,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         depositsPaused = false;
         withdrawsPaused = false;
         unwindsPaused = false;
+
+        isInitialized = false;
     }
 
     // ---------------------------------------------------------------------
