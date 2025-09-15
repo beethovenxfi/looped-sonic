@@ -124,6 +124,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
 
         treasuryAddress = _treasuryAddress;
+        // protocol fee starts at 0, admin can set it later.
+        protocolFeePercent = 0;
     }
 
     // ---------------------------------------------------------------------
