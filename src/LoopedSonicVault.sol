@@ -102,7 +102,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         uint256 _allowedUnwindSlippagePercent,
         address _admin,
         address _treasuryAddress
-    ) ERC20("Beets Aave Looped Sonic", "lS") {
+    ) ERC20("Beets Aave Looped Sonic", "loopS") {
         require(
             _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0)
                 && _aaveCapoRateProvider != address(0) && _treasuryAddress != address(0),
@@ -795,8 +795,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         uint256 currentTotalSupply = totalSupply();
         uint256 rate = _getRate(currentTotalSupply);
 
+        // We only collect protocol fees if the rate is greater than the athRate.
         if (rate > athRate) {
             uint256 rateGrowth = rate - athRate;
+            // The percentage of the rate growth that is due the protocol
             uint256 protocolOwnershipPercentage = (rateGrowth * protocolFeePercent) / rate;
 
             return currentTotalSupply * protocolOwnershipPercentage / (1e18 - protocolOwnershipPercentage);
