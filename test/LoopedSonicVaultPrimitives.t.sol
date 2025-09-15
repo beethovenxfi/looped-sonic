@@ -254,28 +254,35 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
 
     function testFuzzFullyRepayWeth(uint256 depositAmount) public {
         vm.assume(depositAmount >= 0.02 ether && depositAmount <= 5_000_000 ether);
-
         vm.deal(user1, depositAmount);
         vm.prank(user1);
         WETH.deposit{value: depositAmount}();
 
         _depositToVault(user1, depositAmount, 0, "");
 
-        bytes memory callbackData = abi.encodeWithSelector(this._testAaveRepayWethCallback.selector);
-        _depositToVault(user1, 5 ether, 0, callbackData);
+        bytes memory callbackData = abi.encodeWithSelector(this._testAaveFullyRepayWethCallback.selector);
+        _depositToVault(user1, 1 ether, 0, callbackData);
     }
 
     function _testAaveFullyRepayWethCallback() external {
         uint256 aaveDebtAmount = vault.getAaveWethDebtAmount();
+        console.log("Aave WETH debt amount:", aaveDebtAmount);
+
         vm.deal(address(this), aaveDebtAmount);
         WETH.deposit{value: aaveDebtAmount}();
-        // WETH.approve(address(vault), aaveDebtAmount);
 
+        vault.pullWeth(aaveDebtAmount);
         vault.aaveRepayWeth(aaveDebtAmount);
 
         uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtAmount();
 
         assertEq(aaveWethDebtBalanceAfter, 0, "Aave WETH debt balance should be 0");
+
+        // zero the session balances, account for rounding
+        vault.aaveBorrowWeth(aaveDebtAmount - 1);
+        vault.sendWeth(address(this), aaveDebtAmount - 1);
+        uint256 aaveWethDebtBalanceFinal = vault.getAaveWethDebtAmount();
+        assertEq(aaveWethDebtBalanceFinal, aaveDebtAmount, "Aave WETH debt balance should be back to original");
     }
 
     function testAaveRepayWeth() public {
