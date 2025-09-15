@@ -18,11 +18,11 @@ library VaultSnapshotComparison {
         VaultSnapshot.Data stateAfter;
     }
 
-    function navIncreaseEth(Data memory data) internal view returns (uint256) {
+    function navIncreaseEth(Data memory data) internal pure returns (uint256) {
         return data.stateAfter.netAssetValueInEth() - data.stateBefore.netAssetValueInEth();
     }
 
-    function navDecreaseEth(Data memory data) internal view returns (uint256) {
+    function navDecreaseEth(Data memory data) internal pure returns (uint256) {
         return data.stateBefore.netAssetValueInEth() - data.stateAfter.netAssetValueInEth();
     }
 
