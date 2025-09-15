@@ -47,13 +47,23 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     IERC20 public immutable WETH_VARIABLE_DEBT_TOKEN;
     uint8 public immutable AAVE_E_MODE_CATEGORY_ID;
 
+    // Toggled to true on a successful call to initialize. The vault can only ever be initialized once.
     bool public isInitialized;
 
+    // The target health factor for the vault's aave position. Each call to deposit is required to bring the health
+    // factor back to the target (assuming the health factor is at or above the target).
     uint256 public targetHealthFactor;
+
+    // The allowed slippage for unwind operations. This is used to ensure that the vault does not sell the LST for
+    // less than the expected amount. The slippage is applied to the redemption rate for the LST.
     uint256 public allowedUnwindSlippagePercent;
 
+    // This is used to calculate the amount of shares to be minted to the treasury on rate growth
     uint256 public protocolFeePercent;
+
+    // The address that receives protocol fees.
     address public treasuryAddress;
+
     // We take the approach of only charging a protocol fee on rate growth once. This avoids double charging as the
     // rate trends down as debt accrues inbetween stS harvests. It is understood that this approach is not perfect.
     // In instances where the rate goes down and tvl increases signficantly, fees on the grown of the new tvl will not
