@@ -213,4 +213,23 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         vault.setTreasuryAddress(address(0));
         vm.stopPrank();
     }
+
+    function testPaysProtocolFeesBeforePercentageChange() public {
+        _setupStandardDeposit();
+
+        _donateAaveLstATokensToVault(user1, 1 ether);
+
+        uint256 pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertGt(pendingShares, 0, "Pending shares should be greater than 0 after donate");
+
+        vm.prank(admin);
+        vault.setProtocolFeePercentBps(PROTOCOL_FEE_PERCENT_BPS * 2);
+
+        uint256 pendingSharesAfter = vault.getPendingProtocolFeeSharesToBeMinted();
+
+        assertEq(pendingSharesAfter, 0, "Pending shares should be 0 after percentage change");
+
+        assertEq(vault.balanceOf(treasury), pendingShares, "Treasury balance should increase by pending shares before");
+    }
 }
