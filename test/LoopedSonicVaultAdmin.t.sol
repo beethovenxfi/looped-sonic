@@ -257,6 +257,9 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
 
         assertNotEq(newHealthFactor, vault.targetHealthFactor(), "New target health factor should be different");
 
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.TargetHealthFactorChanged(newHealthFactor);
+
         vm.prank(admin);
         vault.setTargetHealthFactor(newHealthFactor);
 
@@ -302,6 +305,9 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         assertNotEq(
             newSlippage, vault.allowedUnwindSlippagePercent(), "New allowed unwind slippage percent should be different"
         );
+
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.AllowedUnwindSlippagePercentChanged(newSlippage);
 
         vm.prank(admin);
         vault.setAllowedUnwindSlippagePercent(newSlippage);
@@ -364,6 +370,9 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         address initialProvider = address(vault.aaveCapoRateProvider());
 
         assertNotEq(newProvider, initialProvider, "New provider should be different from initial");
+
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.AaveCapoRateProviderChanged(newProvider);
 
         vm.prank(admin);
         vault.setAaveCapoRateProvider(newProvider);
