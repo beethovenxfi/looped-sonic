@@ -266,13 +266,20 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
 
     function _testAaveFullyRepayWethCallback() external {
         uint256 aaveDebtAmount = vault.getAaveWethDebtAmount();
-        console.log("Aave WETH debt amount:", aaveDebtAmount);
 
         vm.deal(address(this), aaveDebtAmount);
         WETH.deposit{value: aaveDebtAmount}();
 
+        uint256 wethBalanceBefore = WETH.balanceOf(address(this));
+
         vault.pullWeth(aaveDebtAmount);
         vault.aaveRepayWeth(aaveDebtAmount);
+
+        uint256 wethBalanceAfter = WETH.balanceOf(address(this));
+
+        assertEq(
+            wethBalanceAfter, wethBalanceBefore - aaveDebtAmount, "WETH balance should decrease by the repaid amount"
+        );
 
         uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtAmount();
 
