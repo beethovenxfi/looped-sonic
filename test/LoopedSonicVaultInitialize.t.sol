@@ -195,4 +195,16 @@ contract LoopedSonicVaultInitializeTest is LoopedSonicVaultBase {
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.CollateralNotZero.selector));
         vault.initialize();
     }
+
+    function testRateOneBeforeInit() public {
+        assertEq(vault.getRate(), 1e18, "Rate should be 1 before init");
+
+        vm.prank(user1);
+        WETH.approve(address(vault), INIT_AMOUNT);
+
+        vm.prank(user1);
+        vault.initialize();
+
+        assertEq(vault.getRate(), 1e18, "Rate is still 1 after init");
+    }
 }
