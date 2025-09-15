@@ -795,7 +795,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         uint256 currentTotalSupply = totalSupply();
         uint256 rate = _getRate(currentTotalSupply);
 
-        if (rate > athRate && protocolFeePercent > 0) {
+        if (rate > athRate) {
             uint256 rateGrowth = rate - athRate;
             uint256 protocolOwnershipPercentage = (rateGrowth * protocolFeePercent) / rate;
 
