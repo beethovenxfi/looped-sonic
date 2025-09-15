@@ -27,14 +27,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     bytes32 public constant UNWIND_ROLE = keccak256("UNWIND_ROLE");
 
     uint256 public constant AAVE_VARIABLE_INTEREST_RATE = 2;
-    uint256 public constant MIN_LST_DEPOSIT = 0.01e18; // 0.01
-    uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18; // 0.01
-    uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18; // 0.01
+    uint256 public constant MIN_LST_DEPOSIT = 0.01e18;
+    uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18;
+    uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18;
     uint256 public constant MAX_UNWIND_SLIPPAGE_PERCENT = 0.02e18; // 2%
-    uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18; // 0.01 ETH
-    uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18; // 1.1
-    uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18; // 0.01
-    uint256 public constant INIT_AMOUNT = 1e18; // 1 ETH
+    uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18;
+    uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18;
+    uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18;
+    uint256 public constant INIT_AMOUNT = 1e18;
     uint256 public constant MAX_PROTOCOL_FEE_PERCENT = 0.5e18; // 50%
 
     // ---------------------------------------------------------------------
