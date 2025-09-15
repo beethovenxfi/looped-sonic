@@ -689,6 +689,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _setUnwindsPaused(_paused);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setProtocolFeePercentBps(uint256 _protocolFeePercentBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // We use BPS as the input amount to enforce a minimum of 0.01% and avoid issues with extreme values.
         uint256 _protocolFeePercent = _protocolFeePercentBps * 1e14;
@@ -703,6 +706,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         emit ProtocolFeePercentChanged(_protocolFeePercent);
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function setTreasuryAddress(address _treasuryAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_treasuryAddress != address(0), ZeroAddress());
 
