@@ -420,13 +420,21 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
      * @inheritdoc ILoopedSonicVault
      */
     function aaveRepayWeth(uint256 amount) public whenLocked {
+        uint256 wethDebtAmount = getAaveWethDebtAmount();
+
         require(amount > 0, ZeroAmount());
         // If we overpay, Aave will send WETH back to the vault, which would not be accounted for.
         require(amount <= getAaveWethDebtAmount(), AmountGreaterThanWethDebt());
 
         _decrementWethSessionBalance(amount);
 
-        AAVE_POOL.repay(address(WETH), amount, AAVE_VARIABLE_INTEREST_RATE, address(this));
+        AAVE_POOL.repay(
+            address(WETH),
+            // In the instance that we're paying back the entire debt, we use type(uint256).max to avoid leaving dust.
+            amount == wethDebtAmount ? type(uint256).max : amount,
+            AAVE_VARIABLE_INTEREST_RATE,
+            address(this)
+        );
 
         emit AaveRepayWeth(allowedCaller, amount);
     }
