@@ -17,13 +17,13 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
     using VaultSnapshot for VaultSnapshot.Data;
     using VaultSnapshotComparison for VaultSnapshotComparison.Data;
 
-    uint256 public constant PROTOCOL_FEE_PERCENT_BPS = 100; // 1%
+    uint256 public constant PROTOCOL_FEE_PERCENT = 0.01e18; // 1%
 
     function setUp() public override {
         super.setUp();
 
         vm.startPrank(admin);
-        vault.setProtocolFeePercentBps(PROTOCOL_FEE_PERCENT_BPS);
+        vault.setProtocolFeePercent(PROTOCOL_FEE_PERCENT);
         vm.stopPrank();
     }
 
@@ -66,9 +66,9 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         uint256 donationAmount = 1 ether;
 
         for (uint256 i = 1; i <= 5; i++) {
-            uint256 protocolFeePercentBps = PROTOCOL_FEE_PERCENT_BPS * i;
+            uint256 protocolFeePercent = PROTOCOL_FEE_PERCENT * i;
             vm.prank(admin);
-            vault.setProtocolFeePercentBps(protocolFeePercentBps);
+            vault.setProtocolFeePercent(protocolFeePercent);
 
             _donateAaveLstATokensToVault(user1, donationAmount);
 
@@ -117,7 +117,7 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         _setupStandardDeposit();
 
         vm.prank(admin);
-        vault.setProtocolFeePercentBps(protocolFeePercentBps);
+        vault.setProtocolFeePercent(protocolFeePercentBps * 1e14);
 
         _donateAaveLstATokensToVault(user1, donateAmount);
 
@@ -214,7 +214,7 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         assertGt(pendingShares, 0, "Pending shares should be greater than 0 after donate");
 
         vm.prank(admin);
-        vault.setProtocolFeePercentBps(PROTOCOL_FEE_PERCENT_BPS * 2);
+        vault.setProtocolFeePercent(PROTOCOL_FEE_PERCENT * 2);
 
         uint256 pendingSharesAfter = vault.getPendingProtocolFeeSharesToBeMinted();
 

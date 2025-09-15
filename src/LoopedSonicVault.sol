@@ -99,9 +99,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
             ZeroAddress()
         );
         require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, TargetHealthFactorTooLow());
-        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, AllowedUnwindSlippageTooHigh());
+
         targetHealthFactor = _targetHealthFactor;
-        allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
+
+        _setAllowedUnwindSlippagePercent(_allowedUnwindSlippagePercent);
 
         WETH = IWETH(_weth);
         LST = ISonicStaking(_lst);
@@ -645,17 +646,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     function setTargetHealthFactor(uint256 _targetHealthFactor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_targetHealthFactor >= MIN_TARGET_HEALTH_FACTOR, TargetHealthFactorTooLow());
         targetHealthFactor = _targetHealthFactor;
-    }
 
-    /**
-     * @inheritdoc ILoopedSonicVault
-     */
-    function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, AllowedUnwindSlippageTooHigh());
-        allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
+        emit TargetHealthFactorChanged(_targetHealthFactor);
     }
 
     /**
@@ -665,6 +657,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(_aaveCapoRateProvider != address(0), ZeroAddress());
 
         aaveCapoRateProvider = IAaveCapoRateProvider(_aaveCapoRateProvider);
+
+        emit AaveCapoRateProviderChanged(_aaveCapoRateProvider);
     }
 
     /**
@@ -700,18 +694,21 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function setProtocolFeePercentBps(uint256 _protocolFeePercentBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        // We use BPS as the input amount to enforce a minimum of 0.01% and avoid issues with extreme values.
-        uint256 _protocolFeePercent = _protocolFeePercentBps * 1e14;
+    function setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _setAllowedUnwindSlippagePercent(_allowedUnwindSlippagePercent);
+    }
 
-        require(_protocolFeePercent <= MAX_PROTOCOL_FEE_PERCENT, ProtocolFeePercentTooHigh());
-
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function setProtocolFeePercent(uint256 _protocolFeePercent) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Prior to setting the new protocol fee percent, pay any pending protocol fees
         _payProtocolFees();
 
-        protocolFeePercent = _protocolFeePercent;
-
-        emit ProtocolFeePercentChanged(_protocolFeePercent);
+        _setProtocolFeePercent(_protocolFeePercent);
     }
 
     /**
@@ -811,6 +808,31 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
     function _actualSupply() internal view returns (uint256) {
         return totalSupply() + _pendingProtocolFeeSharesToBeMinted();
+    }
+
+    function _stripExcessPrecision(uint256 value) internal pure returns (uint256) {
+        return value / 1e14 * 1e14;
+    }
+
+    function _setAllowedUnwindSlippagePercent(uint256 _allowedUnwindSlippagePercent) internal {
+        require(_allowedUnwindSlippagePercent <= MAX_UNWIND_SLIPPAGE_PERCENT, AllowedUnwindSlippageTooHigh());
+        require(
+            _allowedUnwindSlippagePercent == _stripExcessPrecision(_allowedUnwindSlippagePercent),
+            AllowedUnwindSlippageNotInBps()
+        );
+
+        allowedUnwindSlippagePercent = _allowedUnwindSlippagePercent;
+
+        emit AllowedUnwindSlippagePercentChanged(_allowedUnwindSlippagePercent);
+    }
+
+    function _setProtocolFeePercent(uint256 _protocolFeePercent) internal {
+        require(_protocolFeePercent <= MAX_PROTOCOL_FEE_PERCENT, ProtocolFeePercentTooHigh());
+        require(_protocolFeePercent == _stripExcessPrecision(_protocolFeePercent), ProtocolFeePercentNotInBps());
+
+        protocolFeePercent = _protocolFeePercent;
+
+        emit ProtocolFeePercentChanged(_protocolFeePercent);
     }
 
     receive() external payable {

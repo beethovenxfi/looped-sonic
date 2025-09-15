@@ -398,7 +398,7 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
     function testOnlyAdminCanSetProtocolFeePercent() public {
         vm.startPrank(user1);
         vm.expectRevert();
-        vault.setProtocolFeePercentBps(50);
+        vault.setProtocolFeePercent(0.01e18);
         vm.stopPrank();
     }
 
@@ -410,9 +410,10 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
     }
 
     function testProtocolFeePercentTooHigh() public {
+        uint256 maxProtocolFeePercent = vault.MAX_PROTOCOL_FEE_PERCENT();
         vm.startPrank(admin);
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ProtocolFeePercentTooHigh.selector));
-        vault.setProtocolFeePercentBps(5001);
+        vault.setProtocolFeePercent(maxProtocolFeePercent + 0.01e18);
         vm.stopPrank();
     }
 

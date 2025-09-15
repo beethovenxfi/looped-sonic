@@ -177,6 +177,24 @@ interface ILoopedSonicVault {
      */
     event TreasuryAddressChanged(address treasuryAddress);
 
+    /**
+     * @notice Emitted when allowed unwind slippage percent changes
+     * @param allowedUnwindSlippagePercent The new allowed unwind slippage percent
+     */
+    event AllowedUnwindSlippagePercentChanged(uint256 allowedUnwindSlippagePercent);
+
+    /**
+     * @notice Emitted when aave capo rate provider changes
+     * @param aaveCapoRateProvider The new aave capo rate provider
+     */
+    event AaveCapoRateProviderChanged(address aaveCapoRateProvider);
+
+    /**
+     * @notice Emitted when target health factor changes
+     * @param targetHealthFactor The new target health factor
+     */
+    event TargetHealthFactorChanged(uint256 targetHealthFactor);
+
     // ---------------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------------
@@ -214,6 +232,8 @@ interface ILoopedSonicVault {
     error TotalSupplyNotZero();
     error AmountGreaterThanWethDebt();
     error ProtocolFeePercentTooHigh();
+    error AllowedUnwindSlippageNotInBps();
+    error ProtocolFeePercentNotInBps();
 
     // ---------------------------------------------------------------------
     // Primary vault operations
@@ -473,10 +493,9 @@ interface ILoopedSonicVault {
 
     /**
      * @notice Sets the protocol fee percentage in basis points (admin only)
-     * @dev Converted to 18 decimal percentage internally. Max fee is enforced.
-     * @param _protocolFeePercentBps The new protocol fee in basis points (100 = 1%)
+     * @param _protocolFeePercent The new protocol fee percentage (18 decimals)
      */
-    function setProtocolFeePercentBps(uint256 _protocolFeePercentBps) external;
+    function setProtocolFeePercent(uint256 _protocolFeePercent) external;
 
     /**
      * @notice Sets the treasury address for protocol fees (admin only)

@@ -133,7 +133,7 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
         uint256 rateStart = vault.getRate();
 
         vm.startPrank(admin);
-        vault.setProtocolFeePercentBps(100);
+        vault.setProtocolFeePercent(0.01e18);
         vault.setTreasuryAddress(treasury);
         vm.stopPrank();
 
