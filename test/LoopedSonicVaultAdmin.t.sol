@@ -394,4 +394,32 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
         vault.setAaveCapoRateProvider(address(0));
     }
+
+    function testOnlyAdminCanSetProtocolFeePercent() public {
+        vm.startPrank(user1);
+        vm.expectRevert();
+        vault.setProtocolFeePercentBps(50);
+        vm.stopPrank();
+    }
+
+    function testOnlyAdminCanSetTreasuryAddress() public {
+        vm.startPrank(user1);
+        vm.expectRevert();
+        vault.setTreasuryAddress(user2);
+        vm.stopPrank();
+    }
+
+    function testProtocolFeePercentTooHigh() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ProtocolFeePercentTooHigh.selector));
+        vault.setProtocolFeePercentBps(5001);
+        vm.stopPrank();
+    }
+
+    function testTreasuryAddressCannotBeZero() public {
+        vm.startPrank(admin);
+        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
+        vault.setTreasuryAddress(address(0));
+        vm.stopPrank();
+    }
 }

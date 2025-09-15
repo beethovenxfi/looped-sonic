@@ -58,6 +58,8 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         uint256 pendingSharesLast = vault.getPendingProtocolFeeSharesToBeMinted();
 
         assertEq(pendingSharesLast, 0, "Pending shares should be 0 after deposit");
+
+        assertApproxEqAbs(vault.getRate(), vault.athRate(), 1, "ath rate should be updated");
     }
 
     function testCorrectPendingProtocolFeeSharesToBeMinted() public {
@@ -108,8 +110,9 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
     }
 
     function testFuzzProtocolFeeAlwaysRoundsDown(uint256 protocolFeePercentBps, uint256 donateAmount) public {
+        uint256 maxDonateAmount = 10_000_000 ether;
         protocolFeePercentBps = bound(protocolFeePercentBps, 0, 5000);
-        donateAmount = bound(donateAmount, 0.01 ether, 10_000_000 ether);
+        donateAmount = bound(donateAmount, 0.01 ether, maxDonateAmount);
 
         _setupStandardDeposit();
 
@@ -182,6 +185,7 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
 
         assertEq(pendingSharesAfter, 0, "Pending shares should be 0 after withdraw");
         assertEq(vault.balanceOf(treasury), pendingSharesBefore, "Treasury balance should increase by pending shares");
+        assertApproxEqAbs(vault.getRate(), vault.athRate(), 1, "ath rate should be updated");
     }
 
     function testProtocolFeesNotChargedOnUnwind() public {
@@ -198,20 +202,6 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         uint256 pendingSharesAfter = vault.getPendingProtocolFeeSharesToBeMinted();
 
         assertEq(pendingSharesAfter, pendingSharesBefore, "Pending shares should be the same after unwind");
-    }
-
-    function testProtocolFeePercentTooHigh() public {
-        vm.startPrank(admin);
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ProtocolFeePercentTooHigh.selector));
-        vault.setProtocolFeePercentBps(5001);
-        vm.stopPrank();
-    }
-
-    function testTreasuryAddressCannotBeZero() public {
-        vm.startPrank(admin);
-        vm.expectRevert(abi.encodeWithSelector(ILoopedSonicVault.ZeroAddress.selector));
-        vault.setTreasuryAddress(address(0));
-        vm.stopPrank();
     }
 
     function testPaysProtocolFeesBeforePercentageChange() public {
