@@ -252,6 +252,32 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         vault.aaveRepayWeth(borrowAmount);
     }
 
+    function testFuzzFullyRepayWeth(uint256 depositAmount) public {
+        vm.assume(depositAmount >= 0.02 ether && depositAmount <= 5_000_000 ether);
+
+        vm.deal(user1, depositAmount);
+        vm.prank(user1);
+        WETH.deposit{value: depositAmount}();
+
+        _depositToVault(user1, depositAmount, 0, "");
+
+        bytes memory callbackData = abi.encodeWithSelector(this._testAaveRepayWethCallback.selector);
+        _depositToVault(user1, 5 ether, 0, callbackData);
+    }
+
+    function _testAaveFullyRepayWethCallback() external {
+        uint256 aaveDebtAmount = vault.getAaveWethDebtAmount();
+        vm.deal(address(this), aaveDebtAmount);
+        WETH.deposit{value: aaveDebtAmount}();
+        // WETH.approve(address(vault), aaveDebtAmount);
+
+        vault.aaveRepayWeth(aaveDebtAmount);
+
+        uint256 aaveWethDebtBalanceAfter = vault.getAaveWethDebtAmount();
+
+        assertEq(aaveWethDebtBalanceAfter, 0, "Aave WETH debt balance should be 0");
+    }
+
     function testAaveRepayWeth() public {
         _setupStandardDeposit();
 
