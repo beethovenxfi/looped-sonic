@@ -270,12 +270,13 @@ contract LoopedSonicVaultPrimitivesTest is LoopedSonicVaultBase {
         vm.deal(address(this), aaveDebtAmount);
         WETH.deposit{value: aaveDebtAmount}();
 
-        uint256 wethBalanceBefore = WETH.balanceOf(address(this));
-
         vault.pullWeth(aaveDebtAmount);
+
+        uint256 wethBalanceBefore = WETH.balanceOf(address(vault));
+
         vault.aaveRepayWeth(aaveDebtAmount);
 
-        uint256 wethBalanceAfter = WETH.balanceOf(address(this));
+        uint256 wethBalanceAfter = WETH.balanceOf(address(vault));
 
         assertEq(
             wethBalanceAfter, wethBalanceBefore - aaveDebtAmount, "WETH balance should decrease by the repaid amount"
