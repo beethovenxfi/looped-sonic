@@ -2,14 +2,12 @@
 
 ## Overview
 
-LoopedSonicVault is an ERC20 vault token that implements a looped LST strategy combining stS with Aave v3 on the Sonic network. The vault uses a flash-accounting execution flow similar to Uni V4 and Balncer V3. This allows for custom router implementations for managing the deposit and withdrawal of assets, supporting flexibility in sourcing the best rate when looping and unwinding. The vault maintains strict safety invariants during an operation.
+An ERC20 vault token that implements a looped LST strategy combining stS with Aave v3 on the Sonic network. The vault uses a flash-accounting execution flow similar to Uni V4 and Balancer V3. This allows for custom router implementations for managing the deposit and withdrawal of assets, supporting flexibility in sourcing the best rate when looping and unwinding. The vault maintains strict safety invariants during an operation.
 
-
-## Core Components
 
 ### Contracts
 
-- **LoopedSonicVault** - Main ERC20 vault contract that handles deposits, withdrawals, and manages the looped strategy
+- **LoopedSonicVault** - Main ERC20 vault contract. Handles accounting for the aave loop, minting/burning of shares, and strictly enforcing invariant checks on user operations.
 - **BaseLoopedSonicRouter** - Abstract router contract that provides the basic logic for deposit and withdrawal operations
 - **MagpieLoopedSonicRouter** - Concrete implementation of the router using Magpie protocol integration
 - **AaveCapoRateProvider** - Rate provider that wraps Aave's StsPriceCapAdapter for pricing
@@ -23,13 +21,15 @@ LoopedSonicVault is an ERC20 vault token that implements a looped LST strategy c
 
 ### Libraries
 
-- **VaultSnapshot** - Library for capturing vault state snapshots
+- **VaultSnapshot** - Library for operating on vault state snapshots, defines the VaultSnapshot.Data struct.
 - **VaultSnapshotComparison** - Library for comparing vault states to ensure invariants
 
 
 ## Functionality
 
 ### Deposit Flow
+
+![Deposit flow](images/deposit-flow.png)
 
 The deposit function implements a leveraged looping strategy:
 
@@ -47,6 +47,9 @@ The deposit function implements a leveraged looping strategy:
 Two withdrawal mechanisms are available:
 
 #### Standard Withdraw
+
+![Withdraw flow](images/withdraw-flow.png)
+
 For smaller withdrawals:
 1. **Share Burning** - Burns user's vault shares upfront
 2. **Collateral Withdrawal** - Withdraws proportional stS collateral from Aave
