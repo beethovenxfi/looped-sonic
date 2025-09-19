@@ -288,7 +288,6 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         VaultSnapshot.Data memory snapshotBefore = getVaultSnapshot();
 
         require(snapshotBefore.actualSupply == 0, TotalSupplyNotZero());
-        require(snapshotBefore.lstCollateralAmount == 0, CollateralNotZero());
 
         // pull the init amount of WETH to the vault
         pullWeth(INIT_AMOUNT);
