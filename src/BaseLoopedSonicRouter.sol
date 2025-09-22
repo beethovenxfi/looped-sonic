@@ -47,7 +47,6 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
 
     function depositCallback(uint256 initialAssets) external onlyVault {
         uint256 currentAssets = initialAssets;
-        uint256 totalCollateral = 0;
 
         VAULT.pullWeth(initialAssets);
 
@@ -60,8 +59,6 @@ abstract contract BaseLoopedSonicRouter is IFlashLoanSimpleReceiver {
             require(lstAmount >= minLstAmount, NotEnoughLst());
 
             VAULT.aaveSupplyLst(lstAmount);
-
-            totalCollateral += lstAmount;
 
             uint256 borrowAmount = VAULT.getBorrowAmountForLoopInEth();
 
