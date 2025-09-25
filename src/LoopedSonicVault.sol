@@ -354,6 +354,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         bytes memory result = (msg.sender).functionCall(data);
         uint256 wethAmount = abi.decode(result, (uint256));
 
+        // Since the LST will be sold on the market during an unwind, there will always be a certain amount of slippage
+        // when compared to the redemption amount.
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWeth());
 
         // Reassign the allowedCaller so we can call the vault primitives below
@@ -364,6 +366,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         aaveRepayWeth(wethAmount);
 
         VaultSnapshot.Data memory snapshot = getVaultSnapshot();
+
+        // The unwind reduces the vault's debt, increasing the health factor of it's aave position. This results in a
+        // loss to the vault's NAV equal to the difference between redemptionAmount and wethAmount. Any increase above
+        // the target imposes unnecessary loss to the vault, since it would be brought back down by the next deposit.
+        require(snapshot.healthFactor() <= targetHealthFactor, InvalidHealthFactorAfterUnwind());
 
         emit Unwind(
             msg.sender,
