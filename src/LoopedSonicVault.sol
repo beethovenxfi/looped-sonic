@@ -81,6 +81,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     // provider to be updated by the admin.
     IAaveCapoRateProvider public aaveCapoRateProvider;
 
+    // The set of routers that are allowed to call Deposit and Withdraw.
+    mapping(address => bool) public trustedRouters;
+
     // ---------------------------------------------------------------------
     // Flash‑accounting operation state (transient; zeroed every execution)
     // ---------------------------------------------------------------------
@@ -186,6 +189,11 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         _;
     }
 
+    modifier onlyTrustedRouter() {
+        require(trustedRouters[msg.sender] == true, NotTrustedRouter());
+        _;
+    }
+
     // ---------------------------------------------------------------------
     // Primary vault operations, each function acquires a lock and then executes a callback, strictly enforcing
     // invariants after the callback.
@@ -197,6 +205,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     function deposit(address receiver, bytes calldata callbackData)
         external
         whenInitialized
+        onlyTrustedRouter
         acquireLock
         returns (uint256 shares)
     {
@@ -244,7 +253,12 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function withdraw(uint256 sharesToRedeem, bytes calldata callbackData) external whenInitialized acquireLock {
+    function withdraw(uint256 sharesToRedeem, bytes calldata callbackData)
+        external
+        whenInitialized
+        onlyTrustedRouter
+        acquireLock
+    {
         require(!withdrawsPaused, WithdrawsPaused());
         require(sharesToRedeem >= MIN_SHARES_TO_REDEEM, NotEnoughShares());
 
@@ -615,6 +629,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return LST_A_TOKEN.balanceOf(address(this));
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
     function getAaveLstCollateralAmountInEth() public view returns (uint256) {
         return aaveCapoRateProvider.convertToAssets(getAaveLstCollateralAmount());
     }
@@ -739,6 +756,30 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         treasuryAddress = _treasuryAddress;
 
         emit TreasuryAddressChanged(_treasuryAddress);
+    }
+
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function addTrustedRouter(address _router) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_router != address(0), ZeroAddress());
+        require(!trustedRouters[_router], RouterAlreadyTrusted());
+
+        trustedRouters[_router] = true;
+
+        emit TrustedRouterAdded(_router);
+    }
+
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function removeTrustedRouter(address _router) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_router != address(0), ZeroAddress());
+        require(trustedRouters[_router], RouterNotTrusted());
+
+        trustedRouters[_router] = false;
+
+        emit TrustedRouterRemoved(_router);
     }
 
     // ---------------------------------------------------------------------
