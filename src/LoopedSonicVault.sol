@@ -30,6 +30,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18;
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18;
     uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18;
+    uint256 public constant MIN_UNWIND_HEALTH_FACTOR_DEVIATION = 0.05e18; // 5%
     uint256 public constant MAX_UNWIND_SLIPPAGE_PERCENT = 0.02e18; // 2%
     uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18;
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18;
@@ -336,6 +337,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     {
         require(!unwindsPaused, UnwindsPaused());
         require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, UnwindAmountBelowMin());
+
+        // An unwind should only be called when the health factor is below the target by a reasonable amount.
+        // This check allows us to enforce that once the health factor returns to the target, unwinds cannot be
+        // executed.
+        require(
+            getHealthFactor() <= targetHealthFactor * (1e18 - MIN_UNWIND_HEALTH_FACTOR_DEVIATION) / 1e18,
+            InvalidHealthFactorBeforeUnwind()
+        );
 
         // Aave will revert any withdraw that would cause the health factor to drop below 1.0
         aaveWithdrawLst(lstAmountToWithdraw);
