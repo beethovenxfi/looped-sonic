@@ -195,6 +195,18 @@ interface ILoopedSonicVault {
      */
     event TargetHealthFactorChanged(uint256 targetHealthFactor);
 
+    /**
+     * @notice Emitted when a trusted router is added
+     * @param router The address of the router that was added
+     */
+    event TrustedRouterAdded(address router);
+
+    /**
+     * @notice Emitted when a trusted router is removed
+     * @param router The address of the router that was removed
+     */
+    event TrustedRouterRemoved(address router);
+
     // ---------------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------------
@@ -233,6 +245,9 @@ interface ILoopedSonicVault {
     error ProtocolFeePercentTooHigh();
     error AllowedUnwindSlippageNotInBps();
     error ProtocolFeePercentNotInBps();
+    error RouterAlreadyTrusted();
+    error RouterNotTrusted();
+    error NotTrustedRouter();
 
     // ---------------------------------------------------------------------
     // Primary vault operations
@@ -406,6 +421,13 @@ interface ILoopedSonicVault {
     function getAaveLstCollateralAmount() external view returns (uint256);
 
     /**
+     * @notice Gets the amount of LST collateral deposited in Aave valued in ETH
+     * @dev Returns the LST collateral amount converted to ETH using the rate provider
+     * @return The amount of LST collateral in ETH terms
+     */
+    function getAaveLstCollateralAmountInEth() external view returns (uint256);
+
+    /**
      * @notice Gets the amount of WETH debt owed to Aave
      * @dev Returns the balance of WETH variable debt tokens held by the vault
      * @return The amount of WETH debt in Aave
@@ -501,6 +523,18 @@ interface ILoopedSonicVault {
      * @param _treasuryAddress The new treasury address to receive protocol fees
      */
     function setTreasuryAddress(address _treasuryAddress) external;
+
+    /**
+     * @notice Adds a trusted router that can call deposit and withdraw functions (admin only)
+     * @param _router The address of the router to add as trusted
+     */
+    function addTrustedRouter(address _router) external;
+
+    /**
+     * @notice Removes a trusted router that can no longer call deposit and withdraw functions (admin only)
+     * @param _router The address of the router to remove from trusted
+     */
+    function removeTrustedRouter(address _router) external;
 
     // ---------------------------------------------------------------------
     // State variable getters
