@@ -62,6 +62,7 @@ contract LoopedSonicVaultBase is Test {
         _setupRoles();
         _setupInitialBalances();
         _initializeVault();
+        _setupTrustedRouter();
     }
 
     function _setupRoles() internal {
@@ -84,6 +85,11 @@ contract LoopedSonicVaultBase is Test {
 
         vm.prank(user2);
         WETH.deposit{value: INITIAL_BALANCE}();
+    }
+
+    function _setupTrustedRouter() internal virtual {
+        vm.prank(admin);
+        vault.addTrustedRouter(address(this));
     }
 
     function _initializeVault() internal virtual {
