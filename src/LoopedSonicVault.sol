@@ -30,7 +30,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18;
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18;
     uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18;
-    uint256 public constant MIN_UNWIND_HEALTH_FACTOR_DEVIATION = 0.1e18; // 10%
+    uint256 public constant UNWIND_HF_MARGIN = 0.01e18;
     uint256 public constant MAX_UNWIND_SLIPPAGE_PERCENT = 0.02e18; // 2%
     uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18;
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18;
@@ -342,10 +342,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         // loss to the vault's NAV equal to the difference between redemptionAmount and wethAmount. Unwind should only
         // be called in situations where the health factor is significantly below the target. Small deviations from the
         // target will be corrected by user deposits.
-        require(
-            getHealthFactor() <= targetHealthFactor * (1e18 - MIN_UNWIND_HEALTH_FACTOR_DEVIATION) / 1e18,
-            InvalidHealthFactorBeforeUnwind()
-        );
+
+        // To prevent unwind being called for small deviations, we include a small margin.
+        require(getHealthFactor() <= targetHealthFactor - UNWIND_HF_MARGIN, InvalidHealthFactorBeforeUnwind());
 
         // Aave will revert any withdraw that would cause the health factor to drop below 1.0
         aaveWithdrawLst(lstAmountToWithdraw);
@@ -378,7 +377,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         VaultSnapshot.Data memory snapshot = getVaultSnapshot();
 
-        // Any increase above the target imposes unnecessary loss to the vault, since it would be brought back down by
+        // Any increase above the target causes unnecessary loss to the vault, since it would be brought back down by
         // the next deposit.
         require(snapshot.healthFactor() <= targetHealthFactor, InvalidHealthFactorAfterUnwind());
 
