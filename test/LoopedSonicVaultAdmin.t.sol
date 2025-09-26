@@ -178,22 +178,16 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         bytes memory withdrawCallbackData = abi.encodeWithSelector(this._withdrawCallback.selector, 0.1 ether);
 
         // Test deposit is blocked
-        vm.startPrank(user2);
-        WETH.approve(address(vault), 1 ether);
         vm.expectRevert(abi.encodeWithSignature("DepositsPaused()"));
         vault.deposit(user2, depositCallbackData);
-        vm.stopPrank();
 
         // Test withdraw is blocked
-        vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSignature("WithdrawsPaused()"));
         vault.withdraw(0.1 ether, withdrawCallbackData);
-        vm.stopPrank();
 
         // Test unwind is blocked
         vm.expectRevert(abi.encodeWithSignature("UnwindsPaused()"));
         vault.unwind(1 ether, "");
-        vm.stopPrank();
     }
 
     // =============================================================================

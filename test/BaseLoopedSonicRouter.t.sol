@@ -21,6 +21,8 @@ contract BaseLoopedSonicRouterTest is LoopedSonicVaultBase {
     function setUp() public override {
         super.setUp();
         router = new MockLoopedSonicRouter(vault);
+        vm.prank(admin);
+        vault.addTrustedRouter(address(router));
     }
 
     function testRouterConstructor() public view {
