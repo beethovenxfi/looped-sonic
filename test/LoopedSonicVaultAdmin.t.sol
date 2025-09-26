@@ -462,4 +462,70 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vault.setTreasuryAddress(address(0));
         vm.stopPrank();
     }
+
+    // =============================================================================
+    // Trusted Routers Admin Tests
+    // =============================================================================
+
+    function testOnlyAdminCanAddTrustedRouter() public {
+        vm.expectRevert();
+        vm.prank(user1);
+        vault.addTrustedRouter(user1);
+
+        vm.expectRevert();
+        vm.prank(operator);
+        vault.addTrustedRouter(user1);
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.TrustedRouterAdded(user1);
+        vault.addTrustedRouter(user1);
+        assertTrue(vault.isTrustedRouter(user1), "Admin should be able to add trusted router");
+    }
+
+    function testOnlyAdminCanRemoveTrustedRouter() public {
+        vm.expectRevert();
+        vm.prank(user1);
+        vault.removeTrustedRouter(user1);
+
+        vm.expectRevert();
+        vm.prank(operator);
+        vault.removeTrustedRouter(user1);
+
+        vm.prank(admin);
+        vault.addTrustedRouter(user1);
+        assertTrue(vault.isTrustedRouter(user1), "Admin should be able to add trusted router");
+
+        vm.prank(admin);
+        vm.expectEmit(true, true, true, false);
+        emit ILoopedSonicVault.TrustedRouterRemoved(user1);
+        vault.removeTrustedRouter(user1);
+        assertFalse(vault.isTrustedRouter(user1), "Admin should be able to remove trusted router");
+    }
+
+    function testCantAddOrRemoveZeroAddressRouter() public {
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.prank(admin);
+        vault.addTrustedRouter(address(0));
+
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.prank(admin);
+        vault.removeTrustedRouter(address(0));
+    }
+
+    function testCantAddOrRemoveRouterTwice() public {
+        vm.prank(admin);
+        vault.addTrustedRouter(user1);
+
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSignature("RouterAlreadyTrusted()"));
+        vault.addTrustedRouter(user1);
+
+        vm.prank(admin);
+        vault.removeTrustedRouter(user1);
+        assertFalse(vault.isTrustedRouter(user1), "Router should be removed");
+        vm.prank(admin);
+        vm.expectRevert(abi.encodeWithSignature("RouterNotTrusted()"));
+        vault.removeTrustedRouter(user1);
+    }
 }

@@ -671,6 +671,13 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         return _pendingProtocolFeeSharesToBeMinted();
     }
 
+    /**
+     * @inheritdoc ILoopedSonicVault
+     */
+    function isTrustedRouter(address router) external view returns (bool) {
+        return trustedRouters[router] == true;
+    }
+
     // ---------------------------------------------------------------------
     // Admin functions
     // ---------------------------------------------------------------------

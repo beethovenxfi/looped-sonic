@@ -463,6 +463,13 @@ interface ILoopedSonicVault {
      */
     function getPendingProtocolFeeSharesToBeMinted() external view returns (uint256);
 
+    /**
+     * @notice Use to check if an address is a trusted router
+     * @param router The address to check
+     * @return True if the address is a trusted router, false otherwise
+     */
+    function isTrustedRouter(address router) external view returns (bool);
+
     // ---------------------------------------------------------------------
     // Admin functions
     // ---------------------------------------------------------------------
