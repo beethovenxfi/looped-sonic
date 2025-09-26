@@ -30,8 +30,6 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
     function testProtocolFeePaidToTreasury() public {
         _setupStandardDeposit();
 
-        uint256 rateBefore = vault.getRate();
-
         uint256 pendingShares = vault.getPendingProtocolFeeSharesToBeMinted();
 
         assertEq(pendingShares, 0, "Pending shares should be 0 after deposit");
@@ -192,6 +190,8 @@ contract LoopedSonicVaultProtocolFeeTest is LoopedSonicVaultBase {
         _setupStandardDeposit();
 
         _donateToLst(1 ether);
+
+        _setMaxTargetHealthFactor();
 
         uint256 pendingSharesBefore = vault.getPendingProtocolFeeSharesToBeMinted();
 

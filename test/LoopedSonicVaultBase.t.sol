@@ -281,5 +281,10 @@ contract LoopedSonicVaultBase is Test {
         return wethAmount;
     }
 
+    function _setMaxTargetHealthFactor() internal {
+        vm.prank(admin);
+        vault.setTargetHealthFactor(type(uint256).max);
+    }
+
     function emptyCallback() external {}
 }

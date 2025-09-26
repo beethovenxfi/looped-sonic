@@ -26,6 +26,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindSuccess() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10;
@@ -123,6 +124,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindWithMaxAmount() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 collateralMin = snapshotBefore.wethDebtAmount * 1e18 / snapshotBefore.liquidationThresholdScaled18();
@@ -142,6 +144,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindWithSlippage() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10; // Unwind 10%
@@ -190,6 +193,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindWithMaxSlippage() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10; // Unwind 10%
@@ -208,6 +212,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindWithOneWeiSlippage() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10; // Unwind 10%
@@ -222,8 +227,10 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
         assertApproxEqAbs(snapshotAfter.netAssetValueInEth(), snapshotBefore.netAssetValueInEth() - 1, 2);
     }
 
-    function testUnwindMorethanDebtFailure() public {
+    function testUnwindMoreThanDebtFailure() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
+
         VaultSnapshot.Data memory initSnapshot = vault.getVaultSnapshot();
         uint256 wethDebtAmount = initSnapshot.wethDebtAmount;
         while (wethDebtAmount > 0) {
@@ -257,6 +264,8 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testFullyUnwindAndWithdraw() public {
         _setupStandardDeposit();
+
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory initSnapshot = vault.getVaultSnapshot();
         uint256 wethDebtAmount = initSnapshot.wethDebtAmount;
@@ -313,6 +322,8 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testAlmostFullyUnwindAndWithdraw() public {
         _setupStandardDeposit();
+
+        _setMaxTargetHealthFactor();
 
         uint256 DESIRED_WETH_DEBT_AFTER = 5; // keep some wei debt
 
@@ -374,6 +385,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindWithTooMuchSlippage() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10; // Unwind 10%
@@ -402,6 +414,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindRevertsOnReentrancy() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshot.lstCollateralAmount / 10;
@@ -414,6 +427,7 @@ contract LoopedSonicVaultUnwindTest is LoopedSonicVaultBase {
 
     function testUnwindRevertsOnReadOnlyReentrancy() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshot = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshot.lstCollateralAmount / 10;

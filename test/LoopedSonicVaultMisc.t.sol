@@ -97,6 +97,7 @@ contract LoopedSonicVaultMiscTest is LoopedSonicVaultBase {
 
     function testOperationRevertsWithLstRateChange() public {
         _setupStandardDeposit();
+        _setMaxTargetHealthFactor();
 
         VaultSnapshot.Data memory snapshotBefore = vault.getVaultSnapshot();
         uint256 lstAmountToWithdraw = snapshotBefore.lstCollateralAmount / 10;
