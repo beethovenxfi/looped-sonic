@@ -9,11 +9,11 @@ import {ILoopedSonicVault} from "../src/interfaces/ILoopedSonicVault.sol";
 contract LoopedSonicVaultTrustedRouter is LoopedSonicVaultBase {
     function setUp() public override {
         super.setUp();
-        assertTrue(vault.isTrustedRouter(address(this)), "we are trusted router");
+        assertTrue(vault.trustedRouters(address(this)), "we are trusted router");
 
         vm.prank(admin);
         vault.removeTrustedRouter(address(this));
-        assertFalse(vault.isTrustedRouter(address(this)), "we are not trusted router");
+        assertFalse(vault.trustedRouters(address(this)), "we are not trusted router");
     }
 
     function testDepositReverts() public {

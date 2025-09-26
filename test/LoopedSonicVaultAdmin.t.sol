@@ -480,7 +480,7 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
         vm.expectEmit(true, true, true, false);
         emit ILoopedSonicVault.TrustedRouterAdded(user1);
         vault.addTrustedRouter(user1);
-        assertTrue(vault.isTrustedRouter(user1), "Admin should be able to add trusted router");
+        assertTrue(vault.trustedRouters(user1), "Admin should be able to add trusted router");
     }
 
     function testOnlyAdminCanRemoveTrustedRouter() public {
@@ -494,13 +494,13 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
 
         vm.prank(admin);
         vault.addTrustedRouter(user1);
-        assertTrue(vault.isTrustedRouter(user1), "Admin should be able to add trusted router");
+        assertTrue(vault.trustedRouters(user1), "Admin should be able to add trusted router");
 
         vm.prank(admin);
         vm.expectEmit(true, true, true, false);
         emit ILoopedSonicVault.TrustedRouterRemoved(user1);
         vault.removeTrustedRouter(user1);
-        assertFalse(vault.isTrustedRouter(user1), "Admin should be able to remove trusted router");
+        assertFalse(vault.trustedRouters(user1), "Admin should be able to remove trusted router");
     }
 
     function testCantAddOrRemoveZeroAddressRouter() public {
@@ -523,7 +523,7 @@ contract LoopedSonicVaultAdminTest is LoopedSonicVaultBase {
 
         vm.prank(admin);
         vault.removeTrustedRouter(user1);
-        assertFalse(vault.isTrustedRouter(user1), "Router should be removed");
+        assertFalse(vault.trustedRouters(user1), "Router should be removed");
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSignature("RouterNotTrusted()"));
         vault.removeTrustedRouter(user1);
