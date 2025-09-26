@@ -338,9 +338,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(!unwindsPaused, UnwindsPaused());
         require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, UnwindAmountBelowMin());
 
-        // An unwind should only be called when the health factor is below the target by a reasonable amount.
-        // This check allows us to enforce that once the health factor returns to the target, unwinds cannot be
-        // executed.
+        // Unwind reduces the vault's debt, increasing the health factor of it's aave position. This results in a
+        // loss to the vault's NAV equal to the difference between redemptionAmount and wethAmount. Unwind should only
+        // be called in situations where the health factor is significantly below the target. Small deviations from the
+        // target will be corrected by user deposits.
         require(
             getHealthFactor() <= targetHealthFactor * (1e18 - MIN_UNWIND_HEALTH_FACTOR_DEVIATION) / 1e18,
             InvalidHealthFactorBeforeUnwind()
@@ -377,9 +378,8 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
 
         VaultSnapshot.Data memory snapshot = getVaultSnapshot();
 
-        // The unwind reduces the vault's debt, increasing the health factor of it's aave position. This results in a
-        // loss to the vault's NAV equal to the difference between redemptionAmount and wethAmount. Any increase above
-        // the target imposes unnecessary loss to the vault, since it would be brought back down by the next deposit.
+        // Any increase above the target imposes unnecessary loss to the vault, since it would be brought back down by
+        // the next deposit.
         require(snapshot.healthFactor() <= targetHealthFactor, InvalidHealthFactorAfterUnwind());
 
         emit Unwind(
