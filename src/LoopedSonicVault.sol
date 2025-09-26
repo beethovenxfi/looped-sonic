@@ -106,7 +106,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         uint256 _allowedUnwindSlippagePercent,
         address _admin,
         address _treasuryAddress
-    ) ERC20("Beets Aave Looped Sonic", "loopS") {
+    ) ERC20("Beets Looped Sonic", "loopS") {
         require(
             _weth != address(0) && _lst != address(0) && _aavePool != address(0) && _admin != address(0)
                 && _aaveCapoRateProvider != address(0) && _treasuryAddress != address(0),
