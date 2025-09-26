@@ -245,6 +245,8 @@ interface ILoopedSonicVault {
     error ProtocolFeePercentTooHigh();
     error AllowedUnwindSlippageNotInBps();
     error ProtocolFeePercentNotInBps();
+    error InvalidHealthFactorBeforeUnwind();
+    error InvalidHealthFactorAfterUnwind();
     error RouterAlreadyTrusted();
     error RouterNotTrusted();
     error NotTrustedRouter();

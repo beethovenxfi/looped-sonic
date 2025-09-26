@@ -30,6 +30,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public constant MIN_LST_DEPOSIT = 0.01e18;
     uint256 public constant MIN_DEPOSIT_AMOUNT = 0.01e18;
     uint256 public constant MIN_UNWIND_AMOUNT = 0.01e18;
+    uint256 public constant UNWIND_HF_MARGIN = 0.01e18;
     uint256 public constant MAX_UNWIND_SLIPPAGE_PERCENT = 0.02e18; // 2%
     uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18;
     uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18;
@@ -351,6 +352,14 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         require(!unwindsPaused, UnwindsPaused());
         require(lstAmountToWithdraw > MIN_UNWIND_AMOUNT, UnwindAmountBelowMin());
 
+        // Unwind reduces the vault's debt, increasing the health factor of it's aave position. This results in a
+        // loss to the vault's NAV equal to the difference between redemptionAmount and wethAmount. Unwind should only
+        // be called in situations where the health factor is significantly below the target. Small deviations from the
+        // target will be corrected by user deposits.
+
+        // To prevent unwind being called for small deviations, we include a small margin.
+        require(getHealthFactor() <= targetHealthFactor - UNWIND_HF_MARGIN, InvalidHealthFactorBeforeUnwind());
+
         // Aave will revert any withdraw that would cause the health factor to drop below 1.0
         aaveWithdrawLst(lstAmountToWithdraw);
 
@@ -368,6 +377,9 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         bytes memory result = (msg.sender).functionCall(data);
         uint256 wethAmount = abi.decode(result, (uint256));
 
+        // Since the LST will be sold on the market during an unwind, there will always be a certain amount of slippage
+        // when compared to the redemption amount. It is expected that the admin will set the allowedUnwindSlippagePercent
+        // to a value that is in line with the current market rate.
         require(wethAmount >= redemptionAmount * (1e18 - allowedUnwindSlippagePercent) / 1e18, NotEnoughWeth());
 
         // Reassign the allowedCaller so we can call the vault primitives below
@@ -378,6 +390,10 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
         aaveRepayWeth(wethAmount);
 
         VaultSnapshot.Data memory snapshot = getVaultSnapshot();
+
+        // Any increase above the target causes unnecessary loss to the vault, since it would be brought back down by
+        // the next deposit.
+        require(snapshot.healthFactor() <= targetHealthFactor, InvalidHealthFactorAfterUnwind());
 
         emit Unwind(
             msg.sender,
@@ -646,7 +662,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getHealthFactor() external view returns (uint256) {
+    function getHealthFactor() public view returns (uint256) {
         return getVaultSnapshot().healthFactor();
     }
 
