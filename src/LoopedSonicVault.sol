@@ -645,7 +645,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     /**
      * @inheritdoc ILoopedSonicVault
      */
-    function getHealthFactor() external view returns (uint256) {
+    function getHealthFactor() public view returns (uint256) {
         return getVaultSnapshot().healthFactor();
     }
 
