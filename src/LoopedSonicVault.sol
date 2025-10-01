@@ -33,7 +33,7 @@ contract LoopedSonicVault is ERC20, AccessControl, ILoopedSonicVault {
     uint256 public constant UNWIND_HF_MARGIN = 0.01e18;
     uint256 public constant MAX_UNWIND_SLIPPAGE_PERCENT = 0.02e18; // 2%
     uint256 public constant MIN_NAV_INCREASE_ETH = 0.01e18;
-    uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.1e18;
+    uint256 public constant MIN_TARGET_HEALTH_FACTOR = 1.05e18;
     uint256 public constant MIN_SHARES_TO_REDEEM = 0.01e18;
     uint256 public constant INIT_AMOUNT = 1e18;
     uint256 public constant MAX_PROTOCOL_FEE_PERCENT = 0.5e18; // 50%
